@@ -74,6 +74,58 @@ is a public-shaped file in a repository. Reference a variable by name only.
 
 ## Log
 
+## 2026-09-27 — The session-start hook no longer reports unpushed work as pushed
+**By:** Claude
+
+`.claude/hooks/session-state.sh` opened this session with `working: clean,
+everything pushed` while the branch carried a commit GitHub did not have. It
+counted `git log @{u}..HEAD | wc -l`. With no upstream configured git errors,
+the error went to `/dev/null`, and `wc` counted zero.
+
+It now settles what there is to compare against before counting:
+
+- **Upstream set** — unchanged: `N unpushed`, or `clean, everything pushed`.
+- **Upstream configured, remote branch deleted** — `upstream origin/<b> is gone`.
+- **No upstream, but an `origin/<branch>` ref exists** — `no upstream set, N
+  unpushed vs origin/<branch>`.
+- **No upstream, no such ref** — `never pushed — no upstream (N commits ahead of
+  origin/main)`, leaving the count out when there is no `origin/main`.
+- **Detached HEAD** — `detached HEAD, no upstream`.
+
+The plain "no upstream → never pushed" was rejected because it would have been
+wrong somewhere as ordinary as a resumed clone. A branch pushed without `-u` has
+no upstream but is on GitHub. And this very clone had `origin/claude/loving-pasteur-hyl6er`
+at `main`'s tip (`68f5e16`) although `git ls-remote` showed GitHub has no such
+branch: the ref was made when the clone was set up. Comparing against it gives
+the same "1 unpushed" the harness's own stop check reports. The hook still makes
+no network call; remote refs are whatever the clone last saw.
+
+**Tested by hand** — the repository has no tests for its hooks. 11 scenarios in
+throwaway repos, the old hook against the new:
+
+- no upstream
+- upstream at HEAD
+- ahead of upstream
+- dirty and ahead
+- pushed without `-u`, 0 ahead and then 1 ahead
+- upstream deleted on origin
+- detached HEAD
+- dirty and never pushed, 2 ahead
+- an `origin/` ref at the base commit with no remote branch
+- no remote at all
+
+The new output matched the expected line in all 11. The old hook matched it in
+the 3 upstream cases. In the 8 without an upstream, it said "clean, everything
+pushed" 7 times and dropped the push state the 8th time. `bash -n` passes.
+shellcheck is not installed here and was not run. Typecheck, lint and 917 unit
+tests (49 files) pass. None of them exercise the hook.
+
+Found, not fixed:
+- The hook's "Blocked on Patrick" lines name three items; `CLAUDE.md` lists six.
+- `DESIGNATED` is written in both this hook and `guard-push.sh` (thread 7).
+- `claude/tactical-foreman-build-m7i3ng` no longer exists on GitHub (`git
+  ls-remote`, 2026-09-27). Pushing there would recreate it (thread 7).
+
 ## 2026-09-27 — Texas tax: the Comptroller's index, a verified-rule ledger, job checks, an MCP server, two workflows
 **By:** Claude
 

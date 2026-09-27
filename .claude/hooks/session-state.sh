@@ -13,7 +13,7 @@ root="${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null)}"
 [ -n "$root" ] && [ -d "$root" ] || exit 0
 cd "$root" || exit 0
 
-DESIGNATED="claude/tactical-foreman-build-m7i3ng"
+DESIGNATED="claude/loving-pasteur-hyl6er"
 branch="$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo unknown)"
 dirty_count="$(git status --porcelain 2>/dev/null | wc -l | tr -d ' ')"
 last_commit="$(git log -1 --format='%s' 2>/dev/null | cut -c1-72)"

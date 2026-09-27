@@ -29,9 +29,9 @@ These come from Patrick and are not negotiable.
 
 ### Git
 
-- Branch: **`claude/tactical-foreman-build-m7i3ng`**. Never push elsewhere without
+- Branch: **`claude/loving-pasteur-hyl6er`**. Never push elsewhere without
   explicit permission.
-- `git push -u origin claude/tactical-foreman-build-m7i3ng`, retrying up to four
+- `git push -u origin claude/loving-pasteur-hyl6er`, retrying up to four
   times on network failure with 2s/4s/8s/16s backoff.
 - Commit trailer, every time:
   ```

@@ -10,7 +10,7 @@
 # force-push to it. Allows everything else through untouched.
 set -uo pipefail
 
-DESIGNATED="claude/tactical-foreman-build-m7i3ng"
+DESIGNATED="claude/loving-pasteur-hyl6er"
 
 payload="$(cat 2>/dev/null || echo '{}')"
 cmd="$(printf '%s' "$payload" | jq -r '.tool_input.command // ""' 2>/dev/null)"
@@ -33,7 +33,7 @@ deny() {
 # the PR. There are legitimate reasons (restarting from a merged base), but it
 # should be a deliberate ask, not a reflex.
 if printf '%s' "$cmd" | grep -qE '(--force|--force-with-lease|[[:space:]]-f([[:space:]]|$))'; then
-  deny "That is a force-push. It discards remote history that may already be on PR #6.
+  deny "That is a force-push. It discards remote history that may already be on its pull request.
 
 If you genuinely need it — restarting the branch from a merged base is the usual reason — say so to Patrick and get explicit agreement first, then run it."
 fi

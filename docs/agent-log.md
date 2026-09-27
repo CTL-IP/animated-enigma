@@ -57,7 +57,6 @@ is a public-shaped file in a repository. Reference a variable by name only.
 | 6 | The Vercel project still has no environment variables, so the deployed URL serves the unconfigured shell. Since 2026-09-17 the fix is linking the Vercel ↔ Supabase integration (Part A of `docs/go-live-checklist.md`); the app reads its variable names directly. Until then, nothing built since Task 8 can be exercised by a human. | 2026-08-16 | Owner |
 | 2 | Once a model key exists, may it draft client-facing text directly, or only suggest edits to the existing deterministic draft? Recommendation on file: draft-only, never autonomous. | 2026-08-14 | Owner |
 | 3 | `src/components/section-placeholder.tsx` is now unused — `/ai-foreman` was its last caller. Delete it, or keep it for stubbing future screens? Kept for now. | 2026-08-14 | Owner |
-| 7 | `guard-push.sh` and CLAUDE.md's Git section pin `claude/tactical-foreman-build-m7i3ng` (PR #6, closed). New sessions get new branches, so the hook blocks every push from them. Update the designated branch — or have the hook accept the session's assigned branch? | 2026-09-27 | Owner |
 | 8 | The organization timezone defaults to `America/New_York`, and the contract terms and docs refer to Ohio; the business is in Dallas–Fort Worth. Confirm the live organization's timezone (`America/Chicago` for DFW) and take the contract terms' state to the attorney review. | 2026-09-27 | Owner |
 | 9 | Host the `texas-tax` MCP server's HTTP entry as a claude.ai connector (phone, Cowork)? Manufact is TAC-BRIDGE's approved MCP host (owner approval required). Nothing is deployed. | 2026-09-27 | Owner |
 
@@ -69,10 +68,40 @@ is a public-shaped file in a repository. Reference a variable by name only.
 | Anthropic or OpenAI for the AI Foreman? | Anthropic, matching the code as written. The pending OpenAI request serves TAC-BRIDGE's own agents, not this application. | 2026-08-14 |
 | Vercel account needs a GitHub Login Connection (was thread 4). | Owner added the Login Connection and installed the Vercel GitHub App on the repo. Project `tactical-foreman` linked; first build failed on a vulnerable Next.js, fixed by upgrading to 15.5.23; second build `Ready`. | 2026-08-16 |
 | Move to Google Workspace? | Add it, don't migrate to it. Google Workspace does not host applications. Gmail send and Calendar sync are being built on Vercel + Supabase as they stand. Supabase Storage stays; Drive not adopted. | 2026-09-09 |
+| The push guard pins a merged PR's branch; new sessions can't push (was thread 7). | Point it at the session's branch. Owner chose `claude/loving-pasteur-hyl6er`; the guard, the session-start hook, `CLAUDE.md` and `ship-check` now name it. The guard still names a single branch, so a session on a new branch needs the same change. | 2026-09-27 |
 
 ---
 
 ## Log
+
+## 2026-09-27 — The designated branch is now `claude/loving-pasteur-hyl6er`
+**By:** Claude
+
+`guard-push.sh` refused every push from this session. It allowed only
+`claude/tactical-foreman-build-m7i3ng`, whose PR (#6) merged and which GitHub has
+since deleted. Patrick chose to point the designated branch at this session's
+branch (thread 7, now settled).
+
+Changed:
+- `DESIGNATED` in `guard-push.sh` and `session-state.sh`
+- the Git section of `CLAUDE.md`
+- the Push section of the `ship-check` skill
+
+The guard's force-push message no longer names PR #6.
+
+Checked by feeding the guard the commands it sees:
+- **Allowed:** a push to this branch, plain or as `HEAD:<branch>`.
+- **Denied:** pushes to `main` and to the old branch, and `--force` and `-f`.
+
+The guard still names one branch, and sessions are assigned new ones, so the next
+session on a new branch will hit the same block. A guard that accepts the current
+branch while still refusing `main` and force-pushes would end that. It has not
+been built.
+
+Not changed, because they describe deployment, which I have not checked:
+- `docs/deployment.md` still says to deploy `claude/tactical-foreman-build-m7i3ng`.
+- `docs/go-live-checklist.md` and `docs/handoff.html` still describe PR #6 as
+  unmerged.
 
 ## 2026-09-27 — The session-start hook no longer reports unpushed work as pushed
 **By:** Claude

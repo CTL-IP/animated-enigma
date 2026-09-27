@@ -57,6 +57,9 @@ is a public-shaped file in a repository. Reference a variable by name only.
 | 6 | The Vercel project still has no environment variables, so the deployed URL serves the unconfigured shell. Since 2026-09-17 the fix is linking the Vercel ↔ Supabase integration (Part A of `docs/go-live-checklist.md`); the app reads its variable names directly. Until then, nothing built since Task 8 can be exercised by a human. | 2026-08-16 | Owner |
 | 2 | Once a model key exists, may it draft client-facing text directly, or only suggest edits to the existing deterministic draft? Recommendation on file: draft-only, never autonomous. | 2026-08-14 | Owner |
 | 3 | `src/components/section-placeholder.tsx` is now unused — `/ai-foreman` was its last caller. Delete it, or keep it for stubbing future screens? Kept for now. | 2026-08-14 | Owner |
+| 7 | `guard-push.sh` and CLAUDE.md's Git section pin `claude/tactical-foreman-build-m7i3ng` (PR #6, closed). New sessions get new branches, so the hook blocks every push from them. Update the designated branch — or have the hook accept the session's assigned branch? | 2026-09-27 | Owner |
+| 8 | The organization timezone defaults to `America/New_York`, and the contract terms and docs refer to Ohio; the business is in Dallas–Fort Worth. Confirm the live organization's timezone (`America/Chicago` for DFW) and take the contract terms' state to the attorney review. | 2026-09-27 | Owner |
+| 9 | Host the `texas-tax` MCP server's HTTP entry as a claude.ai connector (phone, Cowork)? Manufact is TAC-BRIDGE's approved MCP host (owner approval required). Nothing is deployed. | 2026-09-27 | Owner |
 
 ### Settled
 
@@ -70,6 +73,115 @@ is a public-shaped file in a repository. Reference a variable by name only.
 ---
 
 ## Log
+
+## 2026-09-27 — Texas tax: the Comptroller's index, a verified-rule ledger, job checks, an MCP server, two workflows
+**By:** Claude
+
+Patrick asked for the Texas Comptroller's tax publication index to become
+working knowledge — skills, MCP servers, connectors, tasks and workflows for his
+businesses. What landed here is the part that is public by nature: the rules.
+Anything about a particular company — its purchasing, its exposure, its
+decisions — went to the owner privately and is deliberately absent from this
+repository (it is public).
+
+**The domain — `src/lib/texas-tax/`.** `publications.ts` is the index
+transcribed as published: 92 entries, 95 subject rows, 26 Spanish editions, each
+link marked as seen live or built from the Comptroller's address pattern.
+`ledger.ts` is every rule the code applies — 43 facts, 37 confirmed, 4 partly
+confirmed, 2 not settled — each with sources, how it was checked, and a note
+where it falls short. Code cites facts by id and a test fails on a dangling id.
+`profiles.ts` maps obligations and relevance to kinds of business (contractor,
+vehicle rental, holding company, logistics, insurance agency, software and data),
+never to named companies. `texas-tax-core.ts` is pure: search and the
+Comptroller's three sorts (subject, number, title), contract classification,
+rate plausibility, sales tax and franchise due dates, late-payment cost,
+franchise position, vehicle rental tax. `job-checks.ts`, `queries.ts`,
+`audit.ts` and `render.ts` are below.
+
+**Screens.** A "Texas tax check" card on the estimate (between Totals and
+Pricing) and on the invoice (after the lines). It exists for the two mistakes
+that cost a contractor real money — no tax on a commercial remodel (an auditor
+collects it from the contractor) and tax on home-repair labor (the client paid
+tax nobody owed) — and for the quieter one: a home job carrying no tax means the
+contractor owes the tax on its materials, at the register or as taxable
+purchases when bought on a resale certificate. It speaks only when it has
+something to say, runs only when the job site is in Texas (other tenants'
+states get silence, not wrong rules), and cites the publication behind each
+line. One new read, `jobTaxContextQuery`: a project's property type and state.
+
+**MCP server — `src/mcp/texas-tax/`.** Eleven read-only tools over the same pure
+code, stdio via `.mcp.json` (`pnpm mcp:texas-tax`) and Streamable HTTP
+(`pnpm mcp:texas-tax:http`) for a remote connector. Every answer ends with an
+evidence line naming its ledger facts and their weakest status.
+
+**Workflows — `.claude/workflows/`.** `texas-tax-refresh` re-checks ledger facts
+against the Comptroller, sends every claimed change to an adversarial
+challenger, and reports proposed edits without applying any.
+`texas-tax-job-audit` runs `scripts/texas-tax-audit.sql` (read-only) against the
+live database and puts the result through `pnpm texas-tax:audit` — the same
+checks the screens run — then writes a fix list.
+
+**Skill — `.claude/skills/texas-tax/`.** Its references are rendered from the data
+(`pnpm texas-tax:render`) and a test fails if they drift, so the skill can't
+tell Claude one thing while the code does another.
+
+**Tasks.** Two routines in the owner's account: a monthly check (deadlines and
+Comptroller changes) and a quarterly ledger refresh that runs the workflow.
+
+**Decisions.**
+- *A ledger rather than prose.* Most of this knowledge came through search
+  excerpts, not full pages (below). Writing it as facts with statuses lets the
+  weakest input set the confidence of every answer built on it — a treatment
+  resting on an unsettled fact reads as unsettled, instead of looking firm
+  because most of it is.
+- *Holidays are flagged, never moved past.* Filing early is never late, and
+  whether a given holiday moves a Comptroller deadline wasn't verified.
+- *`zod` 3.23.8 → 3.25.76.* The MCP SDK imports `zod/v3`, which 3.23.8 doesn't
+  export, and pnpm resolves the SDK's zod as a peer from the root, so an
+  override can't isolate it (tried). 3.25's root export is still the v3 API; the
+  full suite, typecheck and build pass on it.
+- *The MCP server can't approve itself.* Tested: `enabledMcpjsonServers` in
+  `.claude/settings.json`, and in `settings.local.json`, both leave it pending.
+  Claude Code asks each person once — correct, since a repository that could
+  approve its own servers could run anything.
+- *Not deployed.* TAC-BRIDGE lists Manufact as the approved MCP host with owner
+  approval required; the HTTP entry is ready, the hosting call is Patrick's.
+
+**Verified.** 917 unit tests / 49 files (138 new, in 9), `tsc`, ESLint, and
+`pnpm build`. The RLS suite: 214 assertions, 3 new — the tax-context query,
+FROM/JOIN/WHERE pasted from Drizzle's `.toSQL()`, runs, keeps a project with no
+property, and stays in its tenant. `test-setup-sql.sh`: 50 tables, all RLS. The
+stdio server launched from `.mcp.json`'s own command and probed over raw
+JSON-RPC (handshake, 11 tools, a call, an unknown method, nothing stray on
+stdout); `claude mcp list` sees it (pending approval). The HTTP entry started
+and answered an initialize. The audit SQL ran on a throwaway Postgres built
+from every migration and its output went through the audit script.
+`texas-tax-refresh` ran on a three-fact slice: three agents, all three facts
+re-confirmed from Comptroller pages (by search excerpt), no edits proposed —
+and its report caught that the rental-tax deductions are stated for the 1–30
+day rate only, which the ledger now says.
+
+`texas-tax-job-audit` was started against the live database and stopped
+before it ran anything: its read-only SQL sat waiting on a permission decision
+that can't be answered inside a background workflow. The first live run is the
+owner's to approve; the pipeline itself is proven on the throwaway database.
+
+**Not verified.** The Comptroller's pages were read through web-search
+excerpts, never opened: comptroller.texas.gov — and every other Texas
+government and legal site tried — is blocked by this environment's network
+policy. The two cards have not been seen in a browser against real data (no
+credentials here); a component test renders them. The HTTP connector runs
+nowhere yet.
+
+**Found, not fixed.**
+- `.claude/hooks/guard-push.sh` and this file's Git section still designate
+  `claude/tactical-foreman-build-m7i3ng`, whose PR (#6) is closed. Sessions are
+  now assigned other branches, so the hook denies their pushes by design. Open
+  thread 7.
+- `organizations.timezone` defaults to `America/New_York`, and `CLAUDE.md`,
+  `docs/deployment.md` and the contract terms refer to Ohio, while the business
+  operates in Dallas–Fort Worth. If the live organization kept the default,
+  calendar events sit an hour off. Open thread 8.
 
 ## 2026-09-25 — Go-live, live: first real crashes found and fixed by real usage
 **By:** Claude, working live with Patrick through Part A–D of the go-live checklist.

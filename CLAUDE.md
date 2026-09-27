@@ -92,13 +92,14 @@ vendor swap is configuration, not a rewrite.
 
 ## Skills
 
-Three skills in `.claude/skills/` cover the recurring procedures. Use them.
+Four skills in `.claude/skills/` cover the recurring procedures. Use them.
 
 | Skill | When |
 |---|---|
 | `domain-slice` | Starting a numbered task or adding anything under `src/lib/` |
 | `db-change` | Any edit to `schema.ts`, any migration, constraint, trigger, policy |
 | `ship-check` | Before every commit, and before saying anything is done |
+| `texas-tax` | Any Texas tax question — a job's treatment, a Comptroller publication, a due date, a penalty, franchise tax, vehicle rental tax — and any work in `src/lib/texas-tax` or `src/mcp/texas-tax` |
 
 ## Hooks
 
@@ -181,15 +182,17 @@ src/lib/<domain>/actions.ts         'use server' writes
 src/components/<domain>/            presentation
 src/app/(app)/<route>/              authenticated screens
 src/app/(print)/<route>/print/      chrome-free printable views
+src/mcp/<server>/                   MCP servers over the pure cores (stdio + HTTP entries)
 drizzle/                            migrations (generated DDL + hand-written RLS)
 scripts/                            RLS harness, setup script, verifiers
 docs/                               PRD, architecture, full 50-table schema
+.claude/workflows/                  saved multi-agent workflows (Workflow tool)
 ```
 
 Domains built: `ai-foreman` `auth` `calendar` `catalog` `change-orders` `clients` `contracts`
 `costing` `daily-logs` `dashboard` `email` `estimates` `financials` `google` `intake` `invoices`
 `leads` `media` `projects` `proposals` `schedule` `scopes` `signatures`
-`site-visits` `storage` `tasks`
+`site-visits` `storage` `tasks` `texas-tax`
 
 ---
 
@@ -284,6 +287,14 @@ Not "Warning: incomplete data." Not "Invalid range."
   revenue recognised and only some of its cost.
 - **A member with no cost rate isn't given a made-up one.** Their labour isn't
   costed, and the UI says so. A guessed rate would poison every margin invisibly.
+- **Texas tax rules carry their evidence.** Every rule the code applies is a fact
+  in `src/lib/texas-tax/ledger.ts` with its sources and a status — confirmed,
+  partly confirmed, not settled — and code cites facts by id, test-enforced. An
+  unsettled rule is shown as unsettled; nothing is paraphrased from memory.
+- **Profiles, not companies.** The tax code reasons about kinds of business
+  (contractor, vehicle rental, holding company). This repository is public: a
+  particular owner's companies, purchasing and exposure never go in code, docs,
+  commits, PR text or the agent log.
 
 ---
 
@@ -300,13 +311,22 @@ Not "Warning: incomplete data." Not "Invalid range."
 4. **No client payment portal or card processing.** Payments are recorded by hand.
 5. **Storage uploads are unverified end to end.** The `project-files` bucket
    exists and is private, but no file has actually been pushed through.
+6. **Texas tax tooling.** Approve the `texas-tax` MCP server the first time Claude
+   Code asks (a committed file can't approve it). Decide whether, and where, to
+   host its HTTP connector — nothing is deployed. Set the property type and the
+   state on every property: the estimate and invoice tax checks run only when
+   they know both.
 
 ---
 
 ## Current state
 
-- **767 unit tests** across 37 files
-- **184 real-Postgres RLS assertions**
+- **917 unit tests** across 49 files
+- **214 real-Postgres RLS assertions**
+- **Texas tax ledger:** 43 facts — 37 confirmed, 4 partly confirmed, 2 not
+  settled — checked 2026-09-26 through search excerpts of Comptroller pages
+  (the site itself is blocked in the build environment). Refresh with the
+  `texas-tax-refresh` workflow.
 - **50 tables**, all `ENABLE` + `FORCE` RLS
 - Migrations through `0048` applied to the live project and verified
 - Security advisor: three pre-existing WARNs on `has_role` / `is_member_of` /

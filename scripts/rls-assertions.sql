@@ -2650,5 +2650,58 @@ begin
   raise notice 'PASS: hourlyCostRate resolves the correlated member''s rate without erroring';
 end $$;
 
+-- ═══════════════════ Texas tax checks: job site context ══════════════════════
+-- jobTaxContextQuery (src/lib/texas-tax/queries.ts). The FROM, JOIN and WHERE
+-- are pasted exactly as Drizzle renders them via .toSQL(), parameters written
+-- in; the select list reads address->>'state' here where the app reads the
+-- address and takes the state in JS. Every column comes out table-qualified --
+-- projects and properties both have "id" and "organization_id", the collision
+-- behind the go-live crashes -- and this proves the shape runs and scopes to
+-- the tenant on both sides of the join.
+reset role;
+update properties set property_type = 'Commercial', address = '{"line1":"1 Test Way","state":"TX"}'
+  where id = '000d0aaa-0000-4000-8000-0000000000f1';
+update projects set property_id = '000d0aaa-0000-4000-8000-0000000000f1'
+  where id = '000e0aaa-0000-4000-8000-0000000000f1';
+
+do $$
+declare n int; ptype text; state text; pid uuid;
+begin
+  select "projects"."property_id", "properties"."property_type", "properties"."address"->>'state'
+    into pid, ptype, state
+  from "projects"
+  left join "properties" on ("properties"."id" = "projects"."property_id"
+    and "properties"."organization_id" = '0000000a-0000-4000-8000-000000000001')
+  where ("projects"."organization_id" = '0000000a-0000-4000-8000-000000000001'
+    and "projects"."id" = '000e0aaa-0000-4000-8000-0000000000f1');
+  if ptype is distinct from 'Commercial' or state is distinct from 'TX' then
+    raise exception 'FAIL: tax context read % / %, expected Commercial / TX', ptype, state;
+  end if;
+  raise notice 'PASS: tax context query runs and reads the property type and state';
+
+  -- A project with no property still returns its row, property columns null.
+  update projects set property_id = null where id = '000e0aaa-0000-4000-8000-0000000000f1';
+  select count(*)::int, max("properties"."property_type") into n, ptype
+  from "projects"
+  left join "properties" on ("properties"."id" = "projects"."property_id"
+    and "properties"."organization_id" = '0000000a-0000-4000-8000-000000000001')
+  where ("projects"."organization_id" = '0000000a-0000-4000-8000-000000000001'
+    and "projects"."id" = '000e0aaa-0000-4000-8000-0000000000f1');
+  if n <> 1 or ptype is not null then
+    raise exception 'FAIL: propertyless project gave % rows, type %', n, ptype;
+  end if;
+  raise notice 'PASS: tax context left join keeps a project with no property';
+
+  -- Another tenant asking for this project gets nothing.
+  select count(*)::int into n
+  from "projects"
+  left join "properties" on ("properties"."id" = "projects"."property_id"
+    and "properties"."organization_id" = '0000000b-0000-4000-8000-000000000002')
+  where ("projects"."organization_id" = '0000000b-0000-4000-8000-000000000002'
+    and "projects"."id" = '000e0aaa-0000-4000-8000-0000000000f1');
+  if n <> 0 then raise exception 'FAIL: tax context leaked across tenants (% rows)', n; end if;
+  raise notice 'PASS: tax context query stays inside the tenant';
+end $$;
+
 reset role;
 select 'ALL RLS ASSERTIONS PASSED' as result;

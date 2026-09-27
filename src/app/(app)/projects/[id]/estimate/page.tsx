@@ -13,10 +13,13 @@ import { isEditable, formatMoney, formatMarginPct } from '@/lib/estimates/estima
 import { createEstimate } from '@/lib/estimates/actions';
 import { createProposal } from '@/lib/proposals/actions';
 import { listCatalogItems } from '@/lib/catalog/queries';
-import type { Unit } from '@/lib/catalog/catalog-core';
+import { toNum, type Unit } from '@/lib/catalog/catalog-core';
+import { jobTaxContext } from '@/lib/texas-tax/queries';
+import { jobTaxChecks, laborFromLineType } from '@/lib/texas-tax/job-checks';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { EstimateStatusBadge } from '@/components/estimates/estimate-badges';
+import { TaxCheckCard } from '@/components/texas-tax/tax-check-card';
 import { EstimateBuilder } from './estimate-builder';
 import { EstimateVersionSwitcher, EstimateLifecycle, RateControls } from './estimate-controls';
 
@@ -110,12 +113,28 @@ async function EstimateBody({
     (requestedVersionId && versions.find((v) => v.id === requestedVersionId)) || versions[0]!;
   const selectedId = selectedRow.id;
 
-  const [version, lines, catalogItems] = await Promise.all([
+  const [version, lines, catalogItems, taxContext] = await Promise.all([
     getEstimateVersion(orgId, selectedId),
     getEstimateLines(orgId, selectedId),
     mayWrite ? listCatalogItems({ organizationId: orgId }) : Promise.resolve([]),
+    jobTaxContext(orgId, projectId),
   ]);
   if (!version) notFound();
+
+  // Estimate rates are stored as fractions; the checks think in percent.
+  const taxChecks = taxContext
+    ? jobTaxChecks({
+        document: 'estimate',
+        ...taxContext,
+        taxRatePercent: toNum(version.taxRate) * 100,
+        lines: lines.map((l) => ({
+          description: l.description,
+          taxable: l.taxable,
+          amount: toNum(l.lineCost),
+          isLabor: laborFromLineType(l.lineType),
+        })),
+      })
+    : [];
 
   const editable = mayWrite && isEditable(version.status);
   const catalog = catalogItems.map((c) => ({
@@ -200,6 +219,8 @@ async function EstimateBody({
               </dl>
             </CardContent>
           </Card>
+
+          <TaxCheckCard checks={taxChecks} />
 
           <Card>
             <CardHeader>

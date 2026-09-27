@@ -74,6 +74,21 @@ is a public-shaped file in a repository. Reference a variable by name only.
 
 ## Log
 
+## 2026-09-27 — Correction: two exempt-contract passages the review fixes missed
+**By:** Claude
+
+`aa32ad0` confirmed `exempt-lump-sum-materials`, but two hand-written passages
+still called the lump-sum route unsettled:
+
+- The government-work obligation in `profiles.ts`. Its rendered reference read
+  "Rule — Confirmed", then "was not settled".
+- The texas-tax skill's SKILL.md.
+
+Both now state the confirmed rule. The skill's summary table now also has the
+20% notice penalty and the partly confirmed 2027 threshold. A private copy of
+the skill outside this repository carried the same stale text and was updated
+too.
+
 ## 2026-09-27 — Review fixes on PR #11: home-job labor, three tax rules, the RLS tenant test
 **By:** Claude
 

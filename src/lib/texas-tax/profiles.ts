@@ -221,9 +221,9 @@ export const PROFILE_OBLIGATIONS: Record<BusinessProfile, readonly Obligation[]>
     },
     {
       kind: 'rule',
-      title: 'Bid exempt and government work as a separated contract',
+      title: 'Exempt and government work: buy the materials without tax',
       detail:
-        'The separated contract is the documented route to buying the incorporated materials without tax. Whether a lump-sum contractor can do the same was not settled — confirm in 94-116 before bidding lump-sum.',
+        'On an exempt contract the incorporated materials go untaxed either way — lump-sum, on an exemption certificate to your suppliers (Tax Code §151.311); separated, on a resale certificate. Get the customer’s certificate documenting the exempt contract, and don’t price tax into the materials.',
       ledger: ['separated-contract-contractor-is-retailer', 'exempt-lump-sum-materials'],
       publications: ['94-116'],
     },

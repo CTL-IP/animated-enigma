@@ -52,9 +52,10 @@ order because each one can make the next irrelevant.
 
 1. **Who is the customer?** Federal, Texas state and Texas local government
    jobs carry no tax; neither do exempt organizations that hand over an
-   exemption certificate for work tied to their exempt purpose. Bid them as
-   separated contracts — whether a lump-sum contractor can buy the materials
-   tax-free for them is *not settled* (`exempt-lump-sum-materials`).
+   exemption certificate for work tied to their exempt purpose. On an exempt
+   contract the incorporated materials go untaxed either way: a lump-sum
+   contractor gives suppliers an exemption certificate (Tax Code §151.311), a
+   separated one a resale certificate (`exempt-lump-sum-materials`).
 2. **What is the work?** New construction: no tax on labor, home or
    commercial. Real property services such as a debris haul-off charge:
    taxable, on homes too. Repair in a declared disaster area: labor exempt,
@@ -91,9 +92,9 @@ exactly this.
 |---|---|---|
 | Sales tax rate | 6.25% state + up to 2% local = 8.25% maximum; look up the job site's address | `rate-range` |
 | Sales tax due | 20th of the next month; quarterly Apr/Jul/Oct/Jan 20; yearly Jan 20; weekends move to the next working day | `sales-tax-due-dates` |
-| Paying late | 5% (1–30 days), 10% (31+), another 10% after a Notice of Tax Due; $50 late-filing penalty may be added; interest from day 61 | `late-penalties` |
+| Paying late | 5% (1–30 days), 10% (31+), 20% in all once paid after a Notice of Tax Due; $50 late-filing penalty may be added; interest from day 61 | `late-penalties` |
 | Paying on time | 0.5% timely-filing discount; +1.25% for prepaying a reasonable estimate | `timely-filing-discounts` |
-| Franchise tax | No-tax-due threshold $2.47M (2024–25 reports), $2.65M (2026); report or PIR/OIR due May 15; every LLC files | `franchise-*` |
+| Franchise tax | No-tax-due threshold $2.47M (2024–25 reports), $2.65M (2026; 2027 derived, partly confirmed); report or PIR/OIR due May 15; every LLC files | `franchise-*` |
 | Combined group | >50% common ownership + unitary business = one report; threshold tested on the group | `franchise-combined-group` |
 | Vehicle rental | 10% (1–30 days), 6.25% (31–180); over 180 is a lease; qualified permit needs 5 vehicles | `vehicle-rental-*`, `rental-*` |
 | Records | Keep four years; 30 days to request a redetermination after an audit | `records-four-years`, `audit-redetermination` |

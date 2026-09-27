@@ -2650,5 +2650,125 @@ begin
   raise notice 'PASS: hourlyCostRate resolves the correlated member''s rate without erroring';
 end $$;
 
+-- ═══════════════════ Texas tax checks: job site context ══════════════════════
+-- jobTaxContextQuery (src/lib/texas-tax/queries.ts). The FROM, JOIN and WHERE
+-- are pasted exactly as Drizzle renders them via .toSQL(), parameters written
+-- in; the select list reads address->>'state' here where the app reads the
+-- address and takes the state in JS. Every column comes out table-qualified --
+-- projects and properties both have "id" and "organization_id", the collision
+-- behind the go-live crashes -- and this proves the shape runs and scopes to
+-- the tenant on both sides of the join.
+--
+-- The assertions run as app_user under each tenant's claims. Run as the
+-- superuser they would bypass RLS, and a cross-tenant check would prove only
+-- the hand-written WHERE clause. The fixture rows changed here are saved first
+-- and put back at the end, so later blocks see the seed as it was.
+reset role;
+create temp table tax_fixture_before as
+  select pr.id as property_id, pr.property_type, pr.address,
+         pj.id as project_id, pj.property_id as project_property_id
+  from properties pr, projects pj
+  where pr.id = '000d0aaa-0000-4000-8000-0000000000f1' and pj.id = '000e0aaa-0000-4000-8000-0000000000f1';
+update properties set property_type = 'Commercial', address = '{"line1":"1 Test Way","state":"TX"}'
+  where id = '000d0aaa-0000-4000-8000-0000000000f1';
+update projects set property_id = '000d0aaa-0000-4000-8000-0000000000f1'
+  where id = '000e0aaa-0000-4000-8000-0000000000f1';
+
+-- As Alice (Org A): her own job site reads through RLS.
+set role app_user;
+select set_config('request.jwt.claims',
+  '{"sub":"00000aaa-0000-4000-8000-000000000001","org":"0000000a-0000-4000-8000-000000000001"}',
+  false);
+
+do $$
+declare ptype text; state text; pid uuid;
+begin
+  select "projects"."property_id", "properties"."property_type", "properties"."address"->>'state'
+    into pid, ptype, state
+  from "projects"
+  left join "properties" on ("properties"."id" = "projects"."property_id"
+    and "properties"."organization_id" = '0000000a-0000-4000-8000-000000000001')
+  where ("projects"."organization_id" = '0000000a-0000-4000-8000-000000000001'
+    and "projects"."id" = '000e0aaa-0000-4000-8000-0000000000f1');
+  if ptype is distinct from 'Commercial' or state is distinct from 'TX' then
+    raise exception 'FAIL: tax context read % / %, expected Commercial / TX', ptype, state;
+  end if;
+  raise notice 'PASS: tax context query runs and reads the property type and state';
+end $$;
+
+-- As Bob (Org B): nothing of Org A's, whichever organization the query names.
+select set_config('request.jwt.claims',
+  '{"sub":"00000bbb-0000-4000-8000-000000000002","org":"0000000b-0000-4000-8000-000000000002"}',
+  false);
+
+do $$
+declare n int;
+begin
+  -- The app's query as Bob's session would run it: scoped to his own organization.
+  select count(*)::int into n
+  from "projects"
+  left join "properties" on ("properties"."id" = "projects"."property_id"
+    and "properties"."organization_id" = '0000000b-0000-4000-8000-000000000002')
+  where ("projects"."organization_id" = '0000000b-0000-4000-8000-000000000002'
+    and "projects"."id" = '000e0aaa-0000-4000-8000-0000000000f1');
+  if n <> 0 then raise exception 'FAIL: tax context leaked across tenants (% rows)', n; end if;
+  raise notice 'PASS: tax context query stays inside the tenant';
+
+  -- Bob naming Org A's ids outright: only row level security stands in the way.
+  select count(*)::int into n
+  from "projects"
+  left join "properties" on ("properties"."id" = "projects"."property_id"
+    and "properties"."organization_id" = '0000000a-0000-4000-8000-000000000001')
+  where ("projects"."organization_id" = '0000000a-0000-4000-8000-000000000001'
+    and "projects"."id" = '000e0aaa-0000-4000-8000-0000000000f1');
+  if n <> 0 then raise exception 'FAIL: RLS let Org B read Org A''s tax context (% rows)', n; end if;
+  raise notice 'PASS: tax context across tenants is refused by RLS, not just the WHERE clause';
+end $$;
+
+-- A project with no property still returns its row, property columns null.
+reset role;
+update projects set property_id = null where id = '000e0aaa-0000-4000-8000-0000000000f1';
+set role app_user;
+select set_config('request.jwt.claims',
+  '{"sub":"00000aaa-0000-4000-8000-000000000001","org":"0000000a-0000-4000-8000-000000000001"}',
+  false);
+
+do $$
+declare n int; ptype text;
+begin
+  select count(*)::int, max("properties"."property_type") into n, ptype
+  from "projects"
+  left join "properties" on ("properties"."id" = "projects"."property_id"
+    and "properties"."organization_id" = '0000000a-0000-4000-8000-000000000001')
+  where ("projects"."organization_id" = '0000000a-0000-4000-8000-000000000001'
+    and "projects"."id" = '000e0aaa-0000-4000-8000-0000000000f1');
+  if n <> 1 or ptype is not null then
+    raise exception 'FAIL: propertyless project gave % rows, type %', n, ptype;
+  end if;
+  raise notice 'PASS: tax context left join keeps a project with no property';
+end $$;
+
+-- Put the fixture rows back as they were.
+reset role;
+update properties pr set property_type = b.property_type, address = b.address
+  from tax_fixture_before b where pr.id = b.property_id;
+update projects pj set property_id = b.project_property_id
+  from tax_fixture_before b where pj.id = b.project_id;
+
+do $$
+declare n int;
+begin
+  select count(*)::int into n
+  from tax_fixture_before b
+  join properties pr on pr.id = b.property_id
+  join projects pj on pj.id = b.project_id
+  where pr.property_type is not distinct from b.property_type
+    and pr.address is not distinct from b.address
+    and pj.property_id is not distinct from b.project_property_id;
+  if n <> 1 then raise exception 'FAIL: tax context fixtures not restored (% of 1 rows match)', n; end if;
+  raise notice 'PASS: tax context fixture rows restored';
+end $$;
+drop table tax_fixture_before;
+
 reset role;
 select 'ALL RLS ASSERTIONS PASSED' as result;

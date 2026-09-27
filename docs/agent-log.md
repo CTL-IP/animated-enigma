@@ -57,6 +57,8 @@ is a public-shaped file in a repository. Reference a variable by name only.
 | 6 | The Vercel project still has no environment variables, so the deployed URL serves the unconfigured shell. Since 2026-09-17 the fix is linking the Vercel ↔ Supabase integration (Part A of `docs/go-live-checklist.md`); the app reads its variable names directly. Until then, nothing built since Task 8 can be exercised by a human. | 2026-08-16 | Owner |
 | 2 | Once a model key exists, may it draft client-facing text directly, or only suggest edits to the existing deterministic draft? Recommendation on file: draft-only, never autonomous. | 2026-08-14 | Owner |
 | 3 | `src/components/section-placeholder.tsx` is now unused — `/ai-foreman` was its last caller. Delete it, or keep it for stubbing future screens? Kept for now. | 2026-08-14 | Owner |
+| 8 | The organization timezone defaults to `America/New_York`, and the contract terms and docs refer to Ohio; the business is in Dallas–Fort Worth. Confirm the live organization's timezone (`America/Chicago` for DFW) and take the contract terms' state to the attorney review. | 2026-09-27 | Owner |
+| 9 | Host the `texas-tax` MCP server's HTTP entry as a claude.ai connector (phone, Cowork)? Manufact is TAC-BRIDGE's approved MCP host (owner approval required). Nothing is deployed. | 2026-09-27 | Owner |
 
 ### Settled
 
@@ -66,10 +68,300 @@ is a public-shaped file in a repository. Reference a variable by name only.
 | Anthropic or OpenAI for the AI Foreman? | Anthropic, matching the code as written. The pending OpenAI request serves TAC-BRIDGE's own agents, not this application. | 2026-08-14 |
 | Vercel account needs a GitHub Login Connection (was thread 4). | Owner added the Login Connection and installed the Vercel GitHub App on the repo. Project `tactical-foreman` linked; first build failed on a vulnerable Next.js, fixed by upgrading to 15.5.23; second build `Ready`. | 2026-08-16 |
 | Move to Google Workspace? | Add it, don't migrate to it. Google Workspace does not host applications. Gmail send and Calendar sync are being built on Vercel + Supabase as they stand. Supabase Storage stays; Drive not adopted. | 2026-09-09 |
+| The push guard pins a merged PR's branch; new sessions can't push (was thread 7). | Point it at the session's branch. Owner chose `claude/loving-pasteur-hyl6er`; the guard, the session-start hook, `CLAUDE.md` and `ship-check` now name it. The guard still names a single branch, so a session on a new branch needs the same change. | 2026-09-27 |
 
 ---
 
 ## Log
+
+## 2026-09-27 — Correction: two exempt-contract passages the review fixes missed
+**By:** Claude
+
+`aa32ad0` confirmed `exempt-lump-sum-materials`, but two hand-written passages
+still called the lump-sum route unsettled:
+
+- The government-work obligation in `profiles.ts`. Its rendered reference read
+  "Rule — Confirmed", then "was not settled".
+- The texas-tax skill's SKILL.md.
+
+Both now state the confirmed rule. The skill's summary table now also has the
+20% notice penalty and the partly confirmed 2027 threshold. A private copy of
+the skill outside this repository carried the same stale text and was updated
+too.
+
+## 2026-09-27 — Review fixes on PR #11: home-job labor, three tax rules, the RLS tenant test
+**By:** Claude
+
+Patrick's review of PR #11 named one must-fix, three should-fixes and eight
+small items. All are addressed. Each tax change was checked against Comptroller
+or Tax Code text before the code moved.
+
+**Home-job labor (the must-fix).**
+- **The bug.** `job-checks.ts` knew labor only by line type or a short list of
+  words. So "Paint interior walls", taxed on a home invoice, read as a
+  correctly separated contract — backwards.
+- **Detection.** It now recognises trade work in its working form: painting,
+  rough-in, a line that opens with a work verb. "Paint, 5 gal" stays a
+  product. Debris haul-off is never labor, because it is a taxable service on
+  a home job too.
+- **The deeper fix.** A taxed line that isn't known to be materials is now
+  asked about, never assumed to be materials: `residential-taxed-unclear`, or
+  `residential-all-taxed` when every line is taxed — now on estimates as well
+  as invoices.
+- **Tests.** Eight new tests fail on the old code.
+
+**Tax rules.**
+- **Exempt contracts** — `exempt-lump-sum-materials`, not settled → confirmed.
+  - STAR 202204001R: on an exempt contract (a §151.309 government or §151.310
+    exempt-organization customer) the contractor may give suppliers exemption
+    certificates for materials incorporated into the realty (§151.311).
+  - The lump-sum answer now says so. It used to tell the contractor to price in
+    tax nobody owes.
+- **The 2027 franchise threshold** — a new, partly confirmed fact.
+  - §171.006 adjusts the threshold on January 1 of even-numbered years, so the
+    $2.65 million set for 2026 carries to 2027 reports.
+  - Derived, not read. An answer that uses it says "partly confirmed".
+- **Paying after a Notice of Tax Due.** The Comptroller states that tier as 20%
+  in all.
+  - The calculator added 10 points to whichever tier applied, so a payment 5
+    days late came out at 15%.
+  - It now shows 20%, says the notice tier applied, and refuses a notice dated
+    before the due date.
+- **Check dates.** Facts checked 2026-09-27 carry that date (`checkedOn`).
+  Evidence lines, the MCP ledger listing and the skill references now quote the
+  dates of the facts they rest on, not the ledger's single date.
+
+**RLS.**
+- **The problem.** The Texas tax block ran as the superuser, which bypasses
+  RLS, so its tenant check proved only the WHERE clause.
+- **The fix.** It now runs as `app_user` under each tenant's claims. It adds
+  "Org B naming Org A's ids is refused by RLS", and restores the fixture rows
+  it changes (checked by an assertion).
+- **Negative control.** Run Org B's block as the superuser and the new
+  assertion fails; the old one still passed.
+
+**Small items.**
+- **Audit SQL.** The header now says what the query does: finished and closed
+  jobs are included, on purpose.
+- **Job-audit workflow.** It no longer defaults to the live Supabase ref;
+  `args.projectRef` is required.
+- **MCP HTTP entry.**
+  - It checks the Host header against DNS rebinding: loopback always, plus
+    whatever `MCP_ALLOWED_HOSTS` names for a hosted deployment. The SDK
+    deprecates its transport's own check.
+  - `@modelcontextprotocol/sdk` and `tsx` are now dependencies, same versions,
+    lockfile regenerated by pnpm.
+  - A real statelessness test: no session id is issued, `tools/list` is
+    answered without `initialize`, and a stale session id is ignored.
+- **Hooks.** The designated branch lives in `.claude/hooks/designated-branch`,
+  read by both hooks. The guard refuses every push if the file is missing.
+
+**Rejected.**
+- Limiting the audit's estimates to open projects: a tax period covers finished
+  jobs.
+- Treating a subcontractor line as labor outright: it can carry materials, so
+  it gets asked about instead.
+
+**Verified.**
+- Typecheck, lint, 935 unit tests (49 files), `next build`.
+- RLS suite: 216 assertions. `test-setup-sql`: 50 tables, all RLS.
+- The HTTP entry, run as a process: Host headers accepted and refused as
+  expected; a port in `MCP_ALLOWED_HOSTS` exits 1; a public bind with no
+  hostnames warns.
+
+**Not verified.**
+- The Comptroller and statute text were read through search excerpts only.
+- The tax check card still hasn't been seen against real data.
+
+## 2026-09-27 — The designated branch is now `claude/loving-pasteur-hyl6er`
+**By:** Claude
+
+`guard-push.sh` refused every push from this session. It allowed only
+`claude/tactical-foreman-build-m7i3ng`, whose PR (#6) merged and which GitHub has
+since deleted. Patrick chose to point the designated branch at this session's
+branch (thread 7, now settled).
+
+Changed:
+- `DESIGNATED` in `guard-push.sh` and `session-state.sh`
+- the Git section of `CLAUDE.md`
+- the Push section of the `ship-check` skill
+
+The guard's force-push message no longer names PR #6.
+
+Checked by feeding the guard the commands it sees:
+- **Allowed:** a push to this branch, plain or as `HEAD:<branch>`.
+- **Denied:** pushes to `main` and to the old branch, and `--force` and `-f`.
+
+The guard still names one branch, and sessions are assigned new ones, so the next
+session on a new branch will hit the same block. A guard that accepts the current
+branch while still refusing `main` and force-pushes would end that. It has not
+been built.
+
+Not changed, because they describe deployment, which I have not checked:
+- `docs/deployment.md` still says to deploy `claude/tactical-foreman-build-m7i3ng`.
+- `docs/go-live-checklist.md` and `docs/handoff.html` still describe PR #6 as
+  unmerged.
+
+## 2026-09-27 — The session-start hook no longer reports unpushed work as pushed
+**By:** Claude
+
+`.claude/hooks/session-state.sh` opened this session with `working: clean,
+everything pushed` while the branch carried a commit GitHub did not have. It
+counted `git log @{u}..HEAD | wc -l`. With no upstream configured git errors,
+the error went to `/dev/null`, and `wc` counted zero.
+
+It now settles what there is to compare against before counting:
+
+- **Upstream set** — unchanged: `N unpushed`, or `clean, everything pushed`.
+- **Upstream configured, remote branch deleted** — `upstream origin/<b> is gone`.
+- **No upstream, but an `origin/<branch>` ref exists** — `no upstream set, N
+  unpushed vs origin/<branch>`.
+- **No upstream, no such ref** — `never pushed — no upstream (N commits ahead of
+  origin/main)`, leaving the count out when there is no `origin/main`.
+- **Detached HEAD** — `detached HEAD, no upstream`.
+
+The plain "no upstream → never pushed" was rejected because it would have been
+wrong somewhere as ordinary as a resumed clone. A branch pushed without `-u` has
+no upstream but is on GitHub. And this very clone had `origin/claude/loving-pasteur-hyl6er`
+at `main`'s tip (`68f5e16`) although `git ls-remote` showed GitHub has no such
+branch: the ref was made when the clone was set up. Comparing against it gives
+the same "1 unpushed" the harness's own stop check reports. The hook still makes
+no network call; remote refs are whatever the clone last saw.
+
+**Tested by hand** — the repository has no tests for its hooks. 11 scenarios in
+throwaway repos, the old hook against the new:
+
+- no upstream
+- upstream at HEAD
+- ahead of upstream
+- dirty and ahead
+- pushed without `-u`, 0 ahead and then 1 ahead
+- upstream deleted on origin
+- detached HEAD
+- dirty and never pushed, 2 ahead
+- an `origin/` ref at the base commit with no remote branch
+- no remote at all
+
+The new output matched the expected line in all 11. The old hook matched it in
+the 3 upstream cases. In the 8 without an upstream, it said "clean, everything
+pushed" 7 times and dropped the push state the 8th time. `bash -n` passes.
+shellcheck is not installed here and was not run. Typecheck, lint and 917 unit
+tests (49 files) pass. None of them exercise the hook.
+
+Found, not fixed:
+- The hook's "Blocked on Patrick" lines name three items; `CLAUDE.md` lists six.
+- `DESIGNATED` is written in both this hook and `guard-push.sh` (thread 7).
+- `claude/tactical-foreman-build-m7i3ng` no longer exists on GitHub (`git
+  ls-remote`, 2026-09-27). Pushing there would recreate it (thread 7).
+
+## 2026-09-27 — Texas tax: the Comptroller's index, a verified-rule ledger, job checks, an MCP server, two workflows
+**By:** Claude
+
+Patrick asked for the Texas Comptroller's tax publication index to become
+working knowledge — skills, MCP servers, connectors, tasks and workflows for his
+businesses. What landed here is the part that is public by nature: the rules.
+Anything about a particular company — its purchasing, its exposure, its
+decisions — went to the owner privately and is deliberately absent from this
+repository (it is public).
+
+**The domain — `src/lib/texas-tax/`.** `publications.ts` is the index
+transcribed as published: 92 entries, 95 subject rows, 26 Spanish editions, each
+link marked as seen live or built from the Comptroller's address pattern.
+`ledger.ts` is every rule the code applies — 43 facts, 37 confirmed, 4 partly
+confirmed, 2 not settled — each with sources, how it was checked, and a note
+where it falls short. Code cites facts by id and a test fails on a dangling id.
+`profiles.ts` maps obligations and relevance to kinds of business (contractor,
+vehicle rental, holding company, logistics, insurance agency, software and data),
+never to named companies. `texas-tax-core.ts` is pure: search and the
+Comptroller's three sorts (subject, number, title), contract classification,
+rate plausibility, sales tax and franchise due dates, late-payment cost,
+franchise position, vehicle rental tax. `job-checks.ts`, `queries.ts`,
+`audit.ts` and `render.ts` are below.
+
+**Screens.** A "Texas tax check" card on the estimate (between Totals and
+Pricing) and on the invoice (after the lines). It exists for the two mistakes
+that cost a contractor real money — no tax on a commercial remodel (an auditor
+collects it from the contractor) and tax on home-repair labor (the client paid
+tax nobody owed) — and for the quieter one: a home job carrying no tax means the
+contractor owes the tax on its materials, at the register or as taxable
+purchases when bought on a resale certificate. It speaks only when it has
+something to say, runs only when the job site is in Texas (other tenants'
+states get silence, not wrong rules), and cites the publication behind each
+line. One new read, `jobTaxContextQuery`: a project's property type and state.
+
+**MCP server — `src/mcp/texas-tax/`.** Eleven read-only tools over the same pure
+code, stdio via `.mcp.json` (`pnpm mcp:texas-tax`) and Streamable HTTP
+(`pnpm mcp:texas-tax:http`) for a remote connector. Every answer ends with an
+evidence line naming its ledger facts and their weakest status.
+
+**Workflows — `.claude/workflows/`.** `texas-tax-refresh` re-checks ledger facts
+against the Comptroller, sends every claimed change to an adversarial
+challenger, and reports proposed edits without applying any.
+`texas-tax-job-audit` runs `scripts/texas-tax-audit.sql` (read-only) against the
+live database and puts the result through `pnpm texas-tax:audit` — the same
+checks the screens run — then writes a fix list.
+
+**Skill — `.claude/skills/texas-tax/`.** Its references are rendered from the data
+(`pnpm texas-tax:render`) and a test fails if they drift, so the skill can't
+tell Claude one thing while the code does another.
+
+**Tasks.** Two routines in the owner's account: a monthly check (deadlines and
+Comptroller changes) and a quarterly ledger refresh that runs the workflow.
+
+**Decisions.**
+- *A ledger rather than prose.* Most of this knowledge came through search
+  excerpts, not full pages (below). Writing it as facts with statuses lets the
+  weakest input set the confidence of every answer built on it — a treatment
+  resting on an unsettled fact reads as unsettled, instead of looking firm
+  because most of it is.
+- *Holidays are flagged, never moved past.* Filing early is never late, and
+  whether a given holiday moves a Comptroller deadline wasn't verified.
+- *`zod` 3.23.8 → 3.25.76.* The MCP SDK imports `zod/v3`, which 3.23.8 doesn't
+  export, and pnpm resolves the SDK's zod as a peer from the root, so an
+  override can't isolate it (tried). 3.25's root export is still the v3 API; the
+  full suite, typecheck and build pass on it.
+- *The MCP server can't approve itself.* Tested: `enabledMcpjsonServers` in
+  `.claude/settings.json`, and in `settings.local.json`, both leave it pending.
+  Claude Code asks each person once — correct, since a repository that could
+  approve its own servers could run anything.
+- *Not deployed.* TAC-BRIDGE lists Manufact as the approved MCP host with owner
+  approval required; the HTTP entry is ready, the hosting call is Patrick's.
+
+**Verified.** 917 unit tests / 49 files (138 new, in 9), `tsc`, ESLint, and
+`pnpm build`. The RLS suite: 214 assertions, 3 new — the tax-context query,
+FROM/JOIN/WHERE pasted from Drizzle's `.toSQL()`, runs, keeps a project with no
+property, and stays in its tenant. `test-setup-sql.sh`: 50 tables, all RLS. The
+stdio server launched from `.mcp.json`'s own command and probed over raw
+JSON-RPC (handshake, 11 tools, a call, an unknown method, nothing stray on
+stdout); `claude mcp list` sees it (pending approval). The HTTP entry started
+and answered an initialize. The audit SQL ran on a throwaway Postgres built
+from every migration and its output went through the audit script.
+`texas-tax-refresh` ran on a three-fact slice: three agents, all three facts
+re-confirmed from Comptroller pages (by search excerpt), no edits proposed —
+and its report caught that the rental-tax deductions are stated for the 1–30
+day rate only, which the ledger now says.
+
+`texas-tax-job-audit` was started against the live database and stopped
+before it ran anything: its read-only SQL sat waiting on a permission decision
+that can't be answered inside a background workflow. The first live run is the
+owner's to approve; the pipeline itself is proven on the throwaway database.
+
+**Not verified.** The Comptroller's pages were read through web-search
+excerpts, never opened: comptroller.texas.gov — and every other Texas
+government and legal site tried — is blocked by this environment's network
+policy. The two cards have not been seen in a browser against real data (no
+credentials here); a component test renders them. The HTTP connector runs
+nowhere yet.
+
+**Found, not fixed.**
+- `.claude/hooks/guard-push.sh` and this file's Git section still designate
+  `claude/tactical-foreman-build-m7i3ng`, whose PR (#6) is closed. Sessions are
+  now assigned other branches, so the hook denies their pushes by design. Open
+  thread 7.
+- `organizations.timezone` defaults to `America/New_York`, and `CLAUDE.md`,
+  `docs/deployment.md` and the contract terms refer to Ohio, while the business
+  operates in Dallas–Fort Worth. If the live organization kept the default,
+  calendar events sit an hour off. Open thread 8.
 
 ## 2026-09-25 — Go-live, live: first real crashes found and fixed by real usage
 **By:** Claude, working live with Patrick through Part A–D of the go-live checklist.

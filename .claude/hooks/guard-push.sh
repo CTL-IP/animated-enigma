@@ -10,7 +10,8 @@
 # force-push to it. Allows everything else through untouched.
 set -uo pipefail
 
-DESIGNATED="claude/tactical-foreman-build-m7i3ng"
+# The branch is named in one file, read by this hook and by session-state.sh.
+DESIGNATED="$({ tr -d '[:space:]' < "$(dirname "${BASH_SOURCE[0]}")/designated-branch"; } 2>/dev/null)"
 
 payload="$(cat 2>/dev/null || echo '{}')"
 cmd="$(printf '%s' "$payload" | jq -r '.tool_input.command // ""' 2>/dev/null)"
@@ -29,11 +30,17 @@ deny() {
   exit 0
 }
 
+if [ -z "$DESIGNATED" ]; then
+  deny "Blocked: .claude/hooks/designated-branch is missing or empty, so no branch is cleared for pushing.
+
+Tell Patrick, and ask which branch this work should go to."
+fi
+
 # Force-pushing the designated branch discards history that may already be on
 # the PR. There are legitimate reasons (restarting from a merged base), but it
 # should be a deliberate ask, not a reflex.
 if printf '%s' "$cmd" | grep -qE '(--force|--force-with-lease|[[:space:]]-f([[:space:]]|$))'; then
-  deny "That is a force-push. It discards remote history that may already be on PR #6.
+  deny "That is a force-push. It discards remote history that may already be on its pull request.
 
 If you genuinely need it — restarting the branch from a merged base is the usual reason — say so to Patrick and get explicit agreement first, then run it."
 fi

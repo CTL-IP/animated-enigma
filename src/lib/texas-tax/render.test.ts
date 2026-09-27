@@ -43,8 +43,10 @@ describe('renderPublicationsMarkdown', () => {
 describe('renderLedgerMarkdown', () => {
   it('counts the facts by status and says how they were checked', () => {
     const md = renderLedgerMarkdown();
-    expect(md).toMatch(/\d+ facts, checked 2026-09-26: \d+ confirmed, \d+ partly confirmed, 2 not settled\./);
-    expect(md).toContain('### `exempt-lump-sum-materials` — Not settled');
+    expect(md).toMatch(/\d+ facts, checked 2026-09-26 and 2026-09-27: \d+ confirmed, \d+ partly confirmed, 1 not settled\./);
+    expect(md).toContain('### `manufactured-homes` — Not settled');
+    expect(md).toContain('### `exempt-lump-sum-materials` — Confirmed');
+    expect(md).toContain('### `franchise-no-tax-due-2027` — Partly confirmed');
     expect(md).toMatch(/web-search excerpts, not opened in full/);
   });
 });

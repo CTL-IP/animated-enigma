@@ -1,6 +1,7 @@
--- Texas tax job audit: every live invoice, and the latest estimate on every
--- open project, as one JSON array in the shape scripts/texas-tax-audit.ts
--- reads. READ-ONLY — it selects and nothing else.
+-- Texas tax job audit: every invoice that isn't void, and the latest estimate
+-- on every project that isn't deleted — finished and closed jobs included,
+-- because an audit period covers them too — as one JSON array in the shape
+-- scripts/texas-tax-audit.ts reads. READ-ONLY — it selects and nothing else.
 --
 -- Runs as the service role (Supabase SQL editor, or the Supabase MCP's
 -- execute_sql), which sees every organization; each document carries its

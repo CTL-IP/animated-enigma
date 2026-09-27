@@ -180,7 +180,7 @@ export interface ContractFacts {
 /** What the customer is charged tax on. */
 export type CustomerTaxBase = 'none' | 'materials' | 'total' | 'undetermined';
 /** How the contractor buys the materials that go into the job. */
-export type MaterialsRoute = 'pay-tax-at-purchase' | 'resale-certificate' | 'undetermined';
+export type MaterialsRoute = 'pay-tax-at-purchase' | 'resale-certificate' | 'exemption-certificate' | 'undetermined';
 
 export interface ContractTreatment {
   customerTaxBase: CustomerTaxBase;
@@ -263,15 +263,21 @@ function exemptCustomer(facts: ContractFacts): ContractTreatment {
       publications: ['94-116', '96-1045'],
     });
   }
+  // Lump-sum is where a contractor is normally the consumer of the materials.
+  // An exempt contract is the exception (Tax Code §151.311): pricing in tax
+  // that nobody owes would lose the bid.
   return finish({
     customerTaxBase: 'none',
     laborTaxable: false,
-    materials: 'undetermined',
-    headline: `${who}: no tax on the job. Whether a lump-sum contractor can buy the materials tax-free wasn’t settled — plan to pay tax on them, or bid it as a separated contract.`,
+    materials: 'exemption-certificate',
+    headline: `${who}: no tax on the job. On an exempt contract you buy the incorporated materials on an exemption certificate — lump-sum or not — so don’t price tax into them.`,
     steps: [
       first,
-      ...consumables,
-      'Before bidding lump-sum, read the exempt-customer section of Pub 94-116 on incorporated materials.',
+      ...(government
+        ? ['Ask the agency for an exemption certificate documenting the exempt contract; the improvement must be for its own use.']
+        : []),
+      'Give your suppliers an exemption certificate for materials incorporated into the job, items used up at the site, and taxable services performed there.',
+      'Tools and equipment you keep aren’t covered — tax is paid on them as usual.',
     ],
     ledger: [...basis, 'exempt-lump-sum-materials'],
     publications: ['94-116', '96-1045'],
@@ -760,6 +766,9 @@ export function latePayment(input: LatePaymentInput): LatePaymentResult | { erro
   if (input.noticeDate && !isDay(input.noticeDate)) {
     return { error: 'Give the notice date as YYYY-MM-DD, or leave it out.' };
   }
+  if (input.noticeDate && (dayDiff(input.dueDate, input.noticeDate) ?? 0) < 0) {
+    return { error: 'A Notice of Tax Due comes after the due date. Check the dates.' };
+  }
 
   const ledger = ['late-penalties', 'timely-filing-discounts'];
   const daysLate = Math.max(0, dayDiff(input.dueDate, input.paidDate) ?? 0);
@@ -780,10 +789,13 @@ export function latePayment(input: LatePaymentInput): LatePaymentResult | { erro
     };
   }
 
-  let penaltyPct = daysLate <= 30 ? 5 : 10;
+  // The Comptroller states the notice tier as a total — "an additional 10%
+  // (for a total of 20%)" — not as 10 points on top of whichever tier the
+  // payment was in. Adding it to the 1–30 day 5% would print a 15% that no
+  // Comptroller schedule contains.
   const afterNotice =
     !!input.noticeDate && (dayDiff(input.noticeDate, input.paidDate) ?? 0) > 0;
-  if (afterNotice) penaltyPct += 10;
+  const penaltyPct = afterNotice ? 20 : daysLate <= 30 ? 5 : 10;
 
   const penalty = round2((tax * penaltyPct) / 100);
   const filedLate = input.filedLate ?? true;
@@ -791,9 +803,8 @@ export function latePayment(input: LatePaymentInput): LatePaymentResult | { erro
   const interestApplies = (dayDiff(interestStartsOn, input.paidDate) ?? -1) >= 0;
   const totalBeforeInterest = round2(penalty + lateFilingPenalty);
 
-  const parts = [
-    `${daysLate} ${daysLate === 1 ? 'day' : 'days'} late: ${penaltyPct}% penalty (${formatMoney(penalty)})`,
-  ];
+  const when = `${daysLate} ${daysLate === 1 ? 'day' : 'days'} late${afterNotice ? ', after the Notice of Tax Due date' : ''}`;
+  const parts = [`${when}: ${penaltyPct}% penalty (${formatMoney(penalty)})`];
   if (filedLate) parts.push(`a ${formatMoney(LATE_FILING_PENALTY)} late-filing penalty may be added`);
   parts.push(
     interestApplies
@@ -817,11 +828,21 @@ export function latePayment(input: LatePaymentInput): LatePaymentResult | { erro
 
 // ── Franchise tax ────────────────────────────────────────────────────────────
 
-/** No-tax-due threshold by report year — only years the ledger confirms. */
+/** No-tax-due threshold by report year — only years the ledger records. */
 export const NO_TAX_DUE_THRESHOLDS: Readonly<Record<number, number>> = {
   2024: 2_470_000,
   2025: 2_470_000,
   2026: 2_650_000,
+  2027: 2_650_000,
+};
+
+/**
+ * A year whose threshold rests on more than the confirmed fact. 2027 is
+ * derived from the statute's schedule rather than read, so an answer that uses
+ * it says "partly confirmed" instead of borrowing 2026's certainty.
+ */
+const THRESHOLD_EVIDENCE: Readonly<Record<number, string>> = {
+  2027: 'franchise-no-tax-due-2027',
 };
 
 export interface FranchisePosition {
@@ -848,8 +869,10 @@ export function franchisePosition(
     return { error: 'Enter annualized total revenue as an amount.' };
   }
 
+  const yearEvidence = THRESHOLD_EVIDENCE[reportYear];
   const ledger = [
     'franchise-no-tax-due-threshold',
+    ...(yearEvidence ? [yearEvidence] : []),
     'franchise-information-report',
     'franchise-due-may-15',
     ...(options.combinedGroup ? ['franchise-combined-group'] : []),

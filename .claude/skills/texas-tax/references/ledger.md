@@ -2,7 +2,7 @@
 
 # The ledger: every rule, with its evidence
 
-43 facts, checked 2026-09-26: 37 confirmed, 4 partly confirmed, 2 not settled.
+44 facts, checked 2026-09-26 and 2026-09-27: 38 confirmed, 5 partly confirmed, 1 not settled.
 
 How they were checked matters. comptroller.texas.gov was blocked by the build environment’s network policy, so the pages were read through web-search excerpts, not opened in full. Where a fact is short of confirmed, the note says why. Code cites these by id — `src/lib/texas-tax/ledger.ts` — and a test fails if a cited id is missing.
 
@@ -116,13 +116,13 @@ When the contract is with an exempt organization (holding the Comptroller’s ex
 - Sources: [Pub 94-116, Real Property Repair and Remodeling](https://comptroller.texas.gov/taxes/publications/94-116.php)
 - How checked: Comptroller page read through a web-search excerpt; full text not opened (comptroller.texas.gov is blocked in the build environment).
 
-### `exempt-lump-sum-materials` — Not settled — check before relying on it
+### `exempt-lump-sum-materials` — Confirmed
 
-Whether a lump-sum contractor may buy incorporated materials tax-free for an exempt or government customer.
+On an exempt contract — an improvement to realty for a governmental entity (Tax Code §151.309) or an exempt organization (§151.310) — the contractor, lump-sum or not, may give suppliers exemption certificates for tangible personal property incorporated into the realty, for items necessary and essential to the contract that are consumed at the job site, and for taxable services performed there (§151.311). The customer documents the exempt contract by giving the contractor an exemption certificate.
 
-- Sources: [Pub 94-116, Real Property Repair and Remodeling](https://comptroller.texas.gov/taxes/publications/94-116.php)
-- How checked: Comptroller page read through a web-search excerpt; full text not opened (comptroller.texas.gov is blocked in the build environment).
-- Note: The excerpts describe the separated-contract route and consumables only. One excerpt, from equipment-repair guidance, says a lump-sum repairman pays tax even for an exempt customer — a different rule. Read the exempt-customer section of 94-116 before bidding lump-sum work for a school, church or agency; the separated contract is the documented route.
+- Sources: [STAR 202204001R, exemption certificates on an exempt contract](https://star.comptroller.texas.gov/view/202204001R); [Tax Code §151.311](https://statutes.capitol.texas.gov/Docs/TX/htm/TX.151.htm#151.311); [Pub 94-116, Real Property Repair and Remodeling](https://comptroller.texas.gov/taxes/publications/94-116.php)
+- How checked: Comptroller STAR research documents and the Tax Code read through web-search excerpts on 2026-09-27, after the rest of this ledger; full text not opened.
+- Note: Recorded as not settled until 2026-09-27: the first excerpts described only the separated route and consumables. The improvement must be for the exempt entity’s primary use and benefit; tools and equipment the contractor keeps are not covered.
 
 ### `resale-certificate-knowing-misuse` — Confirmed
 
@@ -226,7 +226,15 @@ The no-tax-due threshold is $2.47 million of annualized total revenue for 2024 a
 
 - Sources: [Franchise tax report forms for 2026](https://comptroller.texas.gov/taxes/franchise/forms/2026-franchise.php); [No tax due reporting for 2024 and later](https://comptroller.texas.gov/taxes/franchise/ntd-rpt-updates-2024.php); [Pub 98-806, Franchise Tax Overview](https://comptroller.texas.gov/taxes/publications/98-806.php)
 - How checked: Comptroller page read through a web-search excerpt; full text not opened (comptroller.texas.gov is blocked in the build environment).
-- Note: No figure for 2027 reports was found.
+- Note: The 2027 figure is its own entry, franchise-no-tax-due-2027: it is derived, not read.
+
+### `franchise-no-tax-due-2027` — Partly confirmed
+
+For 2027 reports the no-tax-due threshold stays at $2.65 million: Tax Code §171.006 adjusts it on January 1 of each even-numbered year, so the figure set for 2026 carries to 2027 reports until the 2028 adjustment.
+
+- Sources: [Franchise tax report forms for 2026](https://comptroller.texas.gov/taxes/franchise/forms/2026-franchise.php); [Tax Code §171.006](https://statutes.capitol.texas.gov/Docs/TX/htm/TX.171.htm#171.006)
+- How checked: Derived on 2026-09-27 from two web-search excerpts — the Comptroller’s 2026 figure and Tax Code §171.006’s adjustment schedule. No page stating the figure itself was read; full text not opened.
+- Note: The $2.47 million set for 2024 applied to both 2024 and 2025 reports, which fits the same schedule. Check the Comptroller’s 2027 report forms when they publish.
 
 ### `franchise-due-may-15` — Confirmed
 

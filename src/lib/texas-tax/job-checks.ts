@@ -70,11 +70,25 @@ export function isTexas(state: string | null | undefined): boolean | null {
 }
 
 const DEBRIS = /\b(debris|dumpsters?|haul[- ]?(off|away)|junk removal|trash (removal|out)|dump (fees?|runs?))\b/i;
-const LABOR = /\b(labor|labour|install(ation|ing)?|demo(lition)?|framing|carpentry|man[- ]?hours?|crew)\b/i;
+const LABOR =
+  /\b(labor|labour|install(ation|ing|ed)?|demo(lition)?|framing|carpentry|man[- ]?hours?|crew|hours?|hourly|painting|painters?|handyman|electrician|plumber|roofers?|rough[- ]?in|trim[- ]?out|tear[- ]?out|tape (and|&) (float|bed|mud))\b/i;
+/**
+ * A line that opens with a work verb and its object — "Hang doors", "Set
+ * toilet", "Paint interior walls" — describes work, not a product. Paint is
+ * the trap: as a noun it's the product, so it counts only when a surface
+ * follows, and "Paint, 5 gal" stays a material.
+ */
+const WORK_VERB =
+  /^\s*(?:(?:hang|lay|patch|repair|replace|remove|build|frame|pour|prep|refinish|resurface|prime|rewire|replumb|remodel|renovate)\s+[a-z]|set\s+(?!of\b)[a-z]|paint\s+(?:the\s+)?(?:interior|exterior|walls?|ceilings?|trim|doors?|cabinets?|rooms?|house|siding|fence|deck))/i;
 
-/** Invoice lines carry no type; a description that reads like labor is treated as labor. */
+/**
+ * Invoice lines carry no type; a description that reads like labor is treated
+ * as labor. Debris haul-off never is — it's a taxable service even on a home
+ * job, so taxing it is right, not a labor mistake.
+ */
 export function looksLikeLabor(description: string): boolean {
-  return LABOR.test(description);
+  if (looksLikeDebrisHaulOff(description)) return false;
+  return LABOR.test(description) || WORK_VERB.test(description);
 }
 
 /**
@@ -201,7 +215,7 @@ export function jobTaxChecks(input: JobCheckInput): TaxCheck[] {
   } else if (nothingPriced) {
     // Residential or commercial, but nothing to check yet.
   } else if (propertyClass === 'residential') {
-    checks.push(...residentialChecks(input, priced, taxCharged));
+    checks.push(...residentialChecks(priced, taxCharged));
   } else {
     checks.push(...nonresidentialChecks(priced, taxCharged));
   }
@@ -221,21 +235,45 @@ export function jobTaxChecks(input: JobCheckInput): TaxCheck[] {
   return checks;
 }
 
-function residentialChecks(input: JobCheckInput, priced: CheckLine[], taxCharged: boolean): TaxCheck[] {
-  if (!taxCharged) {
+/**
+ * What a line is, for the home-job rules. A line type the estimator chose is
+ * trusted; an untyped line is labor only when its words say so. Anything else
+ * is "unclear" — never quietly materials, because calling an unrecognised
+ * labor line materials is exactly how a taxed paint job read as a correctly
+ * separated contract.
+ */
+type LineKind = 'labor' | 'material' | 'taxable-service' | 'unclear';
+
+function lineKind(line: CheckLine): LineKind {
+  if (looksLikeDebrisHaulOff(line.description)) return 'taxable-service';
+  if (line.isLabor === true) return 'labor';
+  if (line.isLabor === false) return 'material';
+  return looksLikeLabor(line.description) ? 'labor' : 'unclear';
+}
+
+function residentialChecks(priced: CheckLine[], taxCharged: boolean): TaxCheck[] {
+  // Taxed haul-off is right on a home job and says nothing about the contract,
+  // so it doesn't count as the job charging tax.
+  const taxedWork = taxCharged ? priced.filter((l) => l.taxable && lineKind(l) !== 'taxable-service') : [];
+
+  if (taxedWork.length === 0) {
     return [
       {
         id: 'residential-lump-sum-materials',
         level: 'info',
-        title: 'No tax on this home job — so you pay it on the materials',
-        body: 'With no tax charged, this is a lump-sum job for tax purposes and you are the consumer of the materials: the tax is paid when you buy them. Anything bought tax-free for it — on a resale certificate, or online without Texas tax — goes on your sales tax return as taxable purchases.',
+        title: 'No tax charged on this home job',
+        body: 'On a lump-sum contract you are the consumer of the materials: the tax is paid when you buy them, and anything bought tax-free for this job — on a resale certificate, or online without Texas tax — goes on your sales tax return as taxable purchases. If the contract states materials separately, the tax belongs on the materials charge instead.',
         publications: ['94-116', '94-171'],
-        ledger: ['lump-sum-contractor-is-consumer', 'taxable-purchases-use-tax'],
+        ledger: [
+          'lump-sum-contractor-is-consumer',
+          'taxable-purchases-use-tax',
+          'separated-contract-contractor-is-retailer',
+        ],
       },
     ];
   }
 
-  const taxedLabor = priced.filter((l) => l.taxable && (l.isLabor ?? looksLikeLabor(l.description)));
+  const taxedLabor = taxedWork.filter((l) => lineKind(l) === 'labor');
   if (taxedLabor.length > 0) {
     const which = taxedLabor.length === 1 ? 'the labor line' : `the ${taxedLabor.length} labor lines`;
     return [
@@ -250,8 +288,8 @@ function residentialChecks(input: JobCheckInput, priced: CheckLine[], taxCharged
     ];
   }
 
-  const everyLineTaxed = priced.every((l) => l.taxable);
-  if (input.document === 'invoice' && everyLineTaxed) {
+  const unclear = taxedWork.filter((l) => lineKind(l) === 'unclear');
+  if (unclear.length > 0 && priced.every((l) => l.taxable)) {
     return [
       {
         id: 'residential-all-taxed',
@@ -263,7 +301,21 @@ function residentialChecks(input: JobCheckInput, priced: CheckLine[], taxCharged
       },
     ];
   }
+  if (unclear.length > 0) {
+    const more = unclear.length > 1 ? ` and ${plural(unclear.length - 1, 'other line', 'other lines')}` : '';
+    return [
+      {
+        id: 'residential-taxed-unclear',
+        level: 'info',
+        title: 'Check the taxed lines are materials',
+        body: `On a home repair or remodel only a separately stated materials charge is taxable. “${unclear[0]!.description}”${more} ${unclear.length === 1 ? 'is' : 'are'} taxed without being marked as materials — if it’s labor or a subcontractor’s work, mark it not taxable.`,
+        publications: ['94-116'],
+        ledger: ['residential-labor-not-taxable', 'separated-contract-contractor-is-retailer'],
+      },
+    ];
+  }
 
+  // Every taxed line is a known material: a separated contract.
   return [
     {
       id: 'residential-separated',

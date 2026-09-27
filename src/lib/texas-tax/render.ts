@@ -9,9 +9,9 @@
 
 import {
   LEDGER,
-  LEDGER_CHECKED_ON,
   LEDGER_STATUS_LABELS,
   LEDGER_TOPICS,
+  checkedOnDates,
   type LedgerTopic,
 } from './ledger';
 import {
@@ -113,7 +113,7 @@ export function renderLedgerMarkdown(): string {
     '',
     '# The ledger: every rule, with its evidence',
     '',
-    `${LEDGER.length} facts, checked ${LEDGER_CHECKED_ON}: ${counts.confirmed} confirmed, ${counts.partial} partly confirmed, ${counts.unresolved} not settled.`,
+    `${LEDGER.length} facts, checked ${checkedOnDates(LEDGER.map((f) => f.id)).join(' and ')}: ${counts.confirmed} confirmed, ${counts.partial} partly confirmed, ${counts.unresolved} not settled.`,
     '',
     'How they were checked matters. comptroller.texas.gov was blocked by the build environment’s network policy, so the pages were read through web-search excerpts, not opened in full. Where a fact is short of confirmed, the note says why. Code cites these by id — `src/lib/texas-tax/ledger.ts` — and a test fails if a cited id is missing.',
   ];

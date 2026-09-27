@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { LEDGER, LEDGER_STATUSES, LEDGER_TOPICS, ledgerFact, weakestStatus } from './ledger';
+import {
+  LEDGER,
+  LEDGER_CHECKED_ON,
+  LEDGER_STATUSES,
+  LEDGER_TOPICS,
+  checkedOnDates,
+  ledgerFact,
+  weakestStatus,
+} from './ledger';
 import {
   BUSINESS_PROFILES,
   PROFILE_OBLIGATIONS,
@@ -89,10 +97,22 @@ describe('the ledger', () => {
     expect(weakestStatus([])).toBe('confirmed');
     expect(weakestStatus(['rate-range'])).toBe('confirmed');
     expect(weakestStatus(['rate-range', 'veteran-owned-exemption'])).toBe('partial');
-    expect(weakestStatus(['veteran-owned-exemption', 'exempt-lump-sum-materials'])).toBe('unresolved');
+    expect(weakestStatus(['veteran-owned-exemption', 'manufactured-homes'])).toBe('unresolved');
     expect(weakestStatus(['no-such-fact'])).toBe('unresolved');
     expect(ledgerFact('rate-range')?.topic).toBe('contracting');
     expect(ledgerFact('no-such-fact')).toBeUndefined();
+  });
+
+  it('quotes each fact’s own check date, never a borrowed one', () => {
+    expect(checkedOnDates(['rate-range'])).toEqual([LEDGER_CHECKED_ON]);
+    expect(checkedOnDates([])).toEqual([LEDGER_CHECKED_ON]);
+    expect(checkedOnDates(['government-customers', 'exempt-lump-sum-materials'])).toEqual([
+      LEDGER_CHECKED_ON,
+      '2026-09-27',
+    ]);
+    for (const fact of LEDGER) {
+      if (fact.checkedOn) expect(fact.checkedOn > LEDGER_CHECKED_ON, fact.id).toBe(true);
+    }
   });
 });
 

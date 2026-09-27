@@ -13,7 +13,8 @@ root="${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null)}"
 [ -n "$root" ] && [ -d "$root" ] || exit 0
 cd "$root" || exit 0
 
-DESIGNATED="claude/loving-pasteur-hyl6er"
+# The same file guard-push.sh reads, so the two can't disagree.
+DESIGNATED="$({ tr -d '[:space:]' < "$(dirname "${BASH_SOURCE[0]}")/designated-branch"; } 2>/dev/null)"
 branch="$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo unknown)"
 dirty_count="$(git status --porcelain 2>/dev/null | wc -l | tr -d ' ')"
 last_commit="$(git log -1 --format='%s' 2>/dev/null | cut -c1-72)"
@@ -50,7 +51,9 @@ lines=()
 lines+=("PT's Tactical Foreman — session start")
 lines+=("")
 
-if [ "$branch" = "$DESIGNATED" ]; then
+if [ -z "$DESIGNATED" ]; then
+  lines+=("branch:      $branch  ⚠ no designated branch (.claude/hooks/designated-branch is missing) — pushes are blocked")
+elif [ "$branch" = "$DESIGNATED" ]; then
   lines+=("branch:      $branch")
 else
   lines+=("branch:      $branch  ⚠ NOT the designated branch ($DESIGNATED)")

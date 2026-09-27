@@ -1,6 +1,6 @@
 import { AlertTriangle, Info } from 'lucide-react';
 import type { TaxCheck } from '@/lib/texas-tax/job-checks';
-import { LEDGER_CHECKED_ON } from '@/lib/texas-tax/ledger';
+import { checkedOnDates } from '@/lib/texas-tax/ledger';
 import { findPublication } from '@/lib/texas-tax/texas-tax-core';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
@@ -12,6 +12,7 @@ import { cn } from '@/lib/utils';
  */
 export function TaxCheckCard({ checks }: { checks: TaxCheck[] }) {
   if (checks.length === 0) return null;
+  const checkedOn = checkedOnDates(checks.flatMap((c) => c.ledger)).join(' and ');
 
   return (
     <Card>
@@ -25,7 +26,7 @@ export function TaxCheckCard({ checks }: { checks: TaxCheck[] }) {
           ))}
         </ul>
         <p className="text-xs text-muted-foreground">
-          Checked against the Comptroller’s publications as read on {LEDGER_CHECKED_ON}. A check,
+          Checked against the Comptroller’s publications as read on {checkedOn}. A check,
           not tax advice.
         </p>
       </CardContent>

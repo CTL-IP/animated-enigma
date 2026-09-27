@@ -42,12 +42,18 @@ export interface LedgerFact {
   status: LedgerStatus;
   method: string;
   note?: string;
+  /** Set when this fact was checked after LEDGER_CHECKED_ON, so no answer borrows an older date. */
+  checkedOn?: string;
 }
 
 const EXCERPT =
   'Comptroller page read through a web-search excerpt; full text not opened (comptroller.texas.gov is blocked in the build environment).';
 const THIRD_PARTY =
   'Comptroller search excerpt plus third-party bill summaries; the Comptroller page itself was not opened.';
+const STAR_EXCERPT =
+  'Comptroller STAR research documents and the Tax Code read through web-search excerpts on 2026-09-27, after the rest of this ledger; full text not opened.';
+const DERIVED =
+  'Derived on 2026-09-27 from two web-search excerpts — the Comptroller’s 2026 figure and Tax Code §171.006’s adjustment schedule. No page stating the figure itself was read; full text not opened.';
 
 const CPA = 'https://comptroller.texas.gov';
 const PUB = `${CPA}/taxes/publications`;
@@ -136,6 +142,18 @@ const src = {
   starRent: {
     label: 'STAR letter ruling on renting real property',
     url: 'https://star.comptroller.texas.gov/view/201807006L',
+  },
+  starExemptContract: {
+    label: 'STAR 202204001R, exemption certificates on an exempt contract',
+    url: 'https://star.comptroller.texas.gov/view/202204001R',
+  },
+  taxCode151311: {
+    label: 'Tax Code §151.311',
+    url: 'https://statutes.capitol.texas.gov/Docs/TX/htm/TX.151.htm#151.311',
+  },
+  taxCode171006: {
+    label: 'Tax Code §171.006',
+    url: 'https://statutes.capitol.texas.gov/Docs/TX/htm/TX.171.htm#171.006',
   },
   informant: { label: "Pub 96-266, Informant's Recovery Program", url: `${PUB}/96-266.pdf` },
 } satisfies Record<string, LedgerSource>;
@@ -284,11 +302,12 @@ export const LEDGER: readonly LedgerFact[] = [
     id: 'exempt-lump-sum-materials',
     topic: 'contracting',
     statement:
-      'Whether a lump-sum contractor may buy incorporated materials tax-free for an exempt or government customer.',
-    sources: [src.p94116],
-    status: 'unresolved',
-    method: EXCERPT,
-    note: 'The excerpts describe the separated-contract route and consumables only. One excerpt, from equipment-repair guidance, says a lump-sum repairman pays tax even for an exempt customer — a different rule. Read the exempt-customer section of 94-116 before bidding lump-sum work for a school, church or agency; the separated contract is the documented route.',
+      'On an exempt contract — an improvement to realty for a governmental entity (Tax Code §151.309) or an exempt organization (§151.310) — the contractor, lump-sum or not, may give suppliers exemption certificates for tangible personal property incorporated into the realty, for items necessary and essential to the contract that are consumed at the job site, and for taxable services performed there (§151.311). The customer documents the exempt contract by giving the contractor an exemption certificate.',
+    sources: [src.starExemptContract, src.taxCode151311, src.p94116],
+    status: 'confirmed',
+    method: STAR_EXCERPT,
+    checkedOn: '2026-09-27',
+    note: 'Recorded as not settled until 2026-09-27: the first excerpts described only the separated route and consumables. The improvement must be for the exempt entity’s primary use and benefit; tools and equipment the contractor keeps are not covered.',
   },
   {
     id: 'resale-certificate-knowing-misuse',
@@ -419,7 +438,18 @@ export const LEDGER: readonly LedgerFact[] = [
     sources: [src.franchise2026, src.ntd2024, src.p98806],
     status: 'confirmed',
     method: EXCERPT,
-    note: 'No figure for 2027 reports was found.',
+    note: 'The 2027 figure is its own entry, franchise-no-tax-due-2027: it is derived, not read.',
+  },
+  {
+    id: 'franchise-no-tax-due-2027',
+    topic: 'franchise',
+    statement:
+      'For 2027 reports the no-tax-due threshold stays at $2.65 million: Tax Code §171.006 adjusts it on January 1 of each even-numbered year, so the figure set for 2026 carries to 2027 reports until the 2028 adjustment.',
+    sources: [src.franchise2026, src.taxCode171006],
+    status: 'partial',
+    method: DERIVED,
+    checkedOn: '2026-09-27',
+    note: 'The $2.47 million set for 2024 applied to both 2024 and 2025 reports, which fits the same schedule. Check the Comptroller’s 2027 report forms when they publish.',
   },
   {
     id: 'franchise-due-may-15',
@@ -554,6 +584,21 @@ const BY_ID = new Map(LEDGER.map((fact) => [fact.id, fact]));
 
 export function ledgerFact(id: string): LedgerFact | undefined {
   return BY_ID.get(id);
+}
+
+/**
+ * When the given facts were checked, oldest first — usually just
+ * LEDGER_CHECKED_ON. An answer quotes these rather than the one global date,
+ * so a rule rechecked later never reads as older than it is, nor the reverse.
+ */
+export function checkedOnDates(ids: readonly string[]): string[] {
+  const dates = new Set<string>();
+  for (const id of ids) {
+    const fact = BY_ID.get(id);
+    if (fact) dates.add(fact.checkedOn ?? LEDGER_CHECKED_ON);
+  }
+  if (dates.size === 0) dates.add(LEDGER_CHECKED_ON);
+  return [...dates].sort();
 }
 
 /** The weakest status among a set of facts — a conclusion is only as good as its worst input. */

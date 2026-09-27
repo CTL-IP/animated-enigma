@@ -3,14 +3,19 @@ export const meta = {
   description:
     "Sweep the Foreman's live invoices and estimates for Texas tax mistakes with the app's own checks, then write a prioritized fix list",
   whenToUse:
-    'Before filing a sales tax return, before or during a Comptroller audit, or after changing how jobs are priced. Optional args {projectRef, organization}.',
+    'Before filing a sales tax return, before or during a Comptroller audit, or after changing how jobs are priced. Pass args {projectRef} — the Supabase project to read; optional organization.',
   phases: [
     { title: 'Pull', detail: 'read-only SQL, then the app’s checks over every document' },
     { title: 'Brief', detail: 'what to fix first, in plain words' },
   ],
 }
 
-const projectRef = (args && args.projectRef) || 'zhlkfuvscnblkkyfticz'
+// No default: a production database is never the thing a script reaches for
+// when nobody named one, and this repository is public.
+const projectRef = args && typeof args.projectRef === 'string' ? args.projectRef.trim() : ''
+if (!/^[a-z0-9]{20}$/.test(projectRef)) {
+  throw new Error('Pass args.projectRef: the 20-character Supabase project ref of the database to audit.')
+}
 const organization = (args && args.organization) || null
 
 const CHECK = {

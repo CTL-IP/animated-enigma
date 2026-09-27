@@ -21,6 +21,7 @@ import {
   LEDGER_STATUSES,
   LEDGER_STATUS_LABELS,
   LEDGER_TOPICS,
+  checkedOnDates,
   ledgerFact,
   weakestStatus,
   type LedgerStatus,
@@ -58,7 +59,7 @@ export const SERVER_VERSION = '1.0.0';
 
 export const SERVER_INSTRUCTIONS = `Texas Comptroller tax publications and the Texas rules a contractor or small business group acts on: contract taxability (residential vs nonresidential, lump-sum vs separated), resale and exemption certificates, local rates, sales tax due dates, late penalties, franchise tax thresholds, and vehicle rental tax.
 
-Every rule was checked against Comptroller pages through web-search excerpts on ${LEDGER_CHECKED_ON} — not by reading the full pages. Each answer ends with an evidence line: confirmed, partly confirmed, or not settled. Say which when you rely on it, link the publication for anything that matters, and never present an unsettled rule as settled. This is research material, not tax advice.`;
+Every rule was checked against Comptroller pages through web-search excerpts — most on ${LEDGER_CHECKED_ON}, a few since — not by reading the full pages. Each answer ends with an evidence line: confirmed, partly confirmed, or not settled. Say which when you rely on it, link the publication for anything that matters, and never present an unsettled rule as settled. This is research material, not tax advice.`;
 
 const READ_ONLY = { readOnlyHint: true, openWorldHint: false } as const;
 
@@ -74,7 +75,7 @@ function failure(message: string): CallToolResult {
 export function evidenceLine(ledger: readonly string[], status?: LedgerStatus): string {
   const firmness = status ?? weakestStatus(ledger);
   const ids = ledger.length > 0 ? ledger.join(', ') : 'no ledger fact';
-  return `Evidence: ${LEDGER_STATUS_LABELS[firmness]} — ${ids}. Checked ${LEDGER_CHECKED_ON} against Comptroller pages via search excerpts; tx_ledger has the sources.`;
+  return `Evidence: ${LEDGER_STATUS_LABELS[firmness]} — ${ids}. Checked ${checkedOnDates(ledger).join(' and ')} against Comptroller pages via search excerpts; tx_ledger has the sources.`;
 }
 
 function linkNote(pub: { url: string | null; urlChecked: boolean }): string {
@@ -234,6 +235,7 @@ export function createTexasTaxServer(): McpServer {
       const materials = {
         'pay-tax-at-purchase': 'paying tax to the supplier at purchase',
         'resale-certificate': 'on a resale certificate',
+        'exemption-certificate': 'on an exemption certificate (an exempt contract, Tax Code §151.311)',
         undetermined: 'not settled — check before relying on a certificate',
       }[t.materials];
       const out = [
@@ -420,7 +422,8 @@ export function createTexasTaxServer(): McpServer {
         if (sources) out.push(`  ${sources}`);
         if (o.ledger.length > 0) out.push(`  Ledger: ${o.ledger.join(', ')}`);
       }
-      out.push('', `Rules checked ${LEDGER_CHECKED_ON} against Comptroller pages via search excerpts. Research material, not tax advice.`);
+      const cited = PROFILE_OBLIGATIONS[profile].flatMap((o) => o.ledger);
+      out.push('', `Rules checked ${checkedOnDates(cited).join(' and ')} against Comptroller pages via search excerpts. Research material, not tax advice.`);
       return text(out.join('\n'));
     },
   );
@@ -448,7 +451,8 @@ export function createTexasTaxServer(): McpServer {
       if (topic) facts = facts.filter((f) => f.topic === topic);
       if (status) facts = facts.filter((f) => f.status === status);
       if (facts.length === 0) return text('No ledger facts match.');
-      const out = [`${facts.length} ${facts.length === 1 ? 'fact' : 'facts'}, checked ${LEDGER_CHECKED_ON}.`];
+      const checked = checkedOnDates(facts.map((f) => f.id)).join(' and ');
+      const out = [`${facts.length} ${facts.length === 1 ? 'fact' : 'facts'}, checked ${checked}.`];
       for (const f of facts) {
         out.push(
           '',

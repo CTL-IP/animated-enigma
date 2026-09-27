@@ -10,7 +10,8 @@
 # force-push to it. Allows everything else through untouched.
 set -uo pipefail
 
-DESIGNATED="claude/loving-pasteur-hyl6er"
+# The branch is named in one file, read by this hook and by session-state.sh.
+DESIGNATED="$({ tr -d '[:space:]' < "$(dirname "${BASH_SOURCE[0]}")/designated-branch"; } 2>/dev/null)"
 
 payload="$(cat 2>/dev/null || echo '{}')"
 cmd="$(printf '%s' "$payload" | jq -r '.tool_input.command // ""' 2>/dev/null)"
@@ -28,6 +29,12 @@ deny() {
   }'
   exit 0
 }
+
+if [ -z "$DESIGNATED" ]; then
+  deny "Blocked: .claude/hooks/designated-branch is missing or empty, so no branch is cleared for pushing.
+
+Tell Patrick, and ask which branch this work should go to."
+fi
 
 # Force-pushing the designated branch discards history that may already be on
 # the PR. There are legitimate reasons (restarting from a merged base), but it

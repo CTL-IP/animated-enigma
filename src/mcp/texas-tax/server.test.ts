@@ -98,13 +98,22 @@ describe('the texas-tax MCP server', () => {
 
   it('carries an unsettled rule through as unsettled', async () => {
     const r = await call('tx_classify_contract', {
+      propertyUse: 'unknown',
+      workKind: 'repair-remodel',
+      contractForm: 'lump-sum',
+    });
+    expect(r.text).toMatch(/Evidence: Not settled/);
+  });
+
+  it('sends a lump-sum government job to an exemption certificate, with both check dates', async () => {
+    const r = await call('tx_classify_contract', {
       propertyUse: 'nonresidential',
       workKind: 'repair-remodel',
       contractForm: 'lump-sum',
       customer: 'government',
     });
-    expect(r.text).toMatch(/Evidence: Not settled/);
-    expect(r.text).toMatch(/exempt-lump-sum-materials/);
+    expect(r.text).toMatch(/Incorporated materials bought: on an exemption certificate \(an exempt contract, Tax Code §151\.311\)/);
+    expect(r.text).toMatch(/Evidence: Confirmed — government-customers, exempt-lump-sum-materials\. Checked 2026-09-26 and 2026-09-27/);
   });
 
   it('rejects arguments outside the schema', async () => {
@@ -151,8 +160,11 @@ describe('the texas-tax MCP server', () => {
     const r = await call('tx_franchise_position', { reportYear: 2026, annualizedRevenue: 900000, combinedGroup: true });
     expect(r.text).toMatch(/At or below the \$2,650,000\.00 no-tax-due threshold/);
     expect(r.text).toMatch(/whole group/);
-    const unknown = await call('tx_franchise_position', { reportYear: 2027, annualizedRevenue: 1 });
-    expect(unknown.text).toMatch(/No threshold is recorded here for 2027/);
+    const derived = await call('tx_franchise_position', { reportYear: 2027, annualizedRevenue: 1 });
+    expect(derived.text).toMatch(/At or below the \$2,650,000\.00 no-tax-due threshold/);
+    expect(derived.text).toMatch(/Evidence: Partly confirmed/);
+    const unknown = await call('tx_franchise_position', { reportYear: 2028, annualizedRevenue: 1 });
+    expect(unknown.text).toMatch(/No threshold is recorded here for 2028/);
   });
 
   it('answers vehicle rental questions and asks for something to answer', async () => {
@@ -178,8 +190,8 @@ describe('the texas-tax MCP server', () => {
 
   it('opens the ledger, filtered', async () => {
     const unresolved = await call('tx_ledger', { status: 'unresolved' });
-    expect(unresolved.text).toMatch(/^2 facts/);
-    expect(unresolved.text).toMatch(/exempt-lump-sum-materials/);
+    expect(unresolved.text).toMatch(/^1 fact, checked 2026-09-26\./);
+    expect(unresolved.text).not.toMatch(/exempt-lump-sum-materials/);
     expect(unresolved.text).toMatch(/manufactured-homes/);
     const one = await call('tx_ledger', { id: 'rate-range' });
     expect(one.text).toMatch(/Sales Tax Rate Locator/);

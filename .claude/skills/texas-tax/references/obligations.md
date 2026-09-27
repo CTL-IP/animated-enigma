@@ -162,7 +162,7 @@ Ledger: `exempt-organization-customers`
 
 ### Bid exempt and government work as a separated contract
 
-*Rule — Not settled — check before relying on it.* The separated contract is the documented route to buying the incorporated materials without tax. Whether a lump-sum contractor can do the same was not settled — confirm in 94-116 before bidding lump-sum.
+*Rule — Confirmed.* The separated contract is the documented route to buying the incorporated materials without tax. Whether a lump-sum contractor can do the same was not settled — confirm in 94-116 before bidding lump-sum.
 
 Publications: [94-116](https://comptroller.texas.gov/taxes/publications/94-116.php)
 

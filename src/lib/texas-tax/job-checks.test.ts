@@ -86,6 +86,42 @@ describe('line heuristics', () => {
     expect(looksLikeLabor('Crew — 2 days')).toBe(true);
     expect(looksLikeLabor('LVP flooring, 400 sq ft')).toBe(false);
   });
+
+  it('reads trade work as labor, in the words a contractor writes it', () => {
+    for (const d of [
+      'Paint interior walls',
+      'Interior painting',
+      'Plumbing rough-in',
+      'Electrician — 6 hours',
+      'Hang doors and trim',
+      'Set toilet and vanity',
+      'Replace water heater',
+      'Tear-out of old tub surround',
+      'Tape and float drywall',
+      'Cabinets, installed',
+    ]) {
+      expect(looksLikeLabor(d), d).toBe(true);
+    }
+  });
+
+  it('leaves products alone, even ones named after a trade', () => {
+    for (const d of [
+      'Paint, 5 gal',
+      'Paint - semi-gloss white',
+      'Drywall and mud',
+      'Plumbing fixtures',
+      'Replacement windows',
+      'Set of 4 cabinet hinges',
+      'Quartz counters',
+    ]) {
+      expect(looksLikeLabor(d), d).toBe(false);
+    }
+  });
+
+  it('never calls haul-off labor — it is a taxable service', () => {
+    expect(looksLikeLabor('Haul away old cabinets')).toBe(false);
+    expect(looksLikeLabor('Dumpster and haul-off, crew of 2')).toBe(false);
+  });
 });
 
 describe('jobTaxChecks — whether the checks can run at all', () => {
@@ -159,6 +195,70 @@ describe('jobTaxChecks — homes', () => {
       lines: [material, { ...labor, taxable: true, amount: 0 }],
     });
     expect(ids(list)).toEqual(['residential-separated']);
+  });
+
+  it('no tax charged: says what that means for a lump-sum and for a separated contract', () => {
+    const body = checks({})[0]!.body;
+    expect(body).toMatch(/lump-sum/);
+    expect(body).toMatch(/states materials separately/);
+  });
+});
+
+describe('jobTaxChecks — homes, labor the line type does not name', () => {
+  const invoiceLine = (description: string, taxable: boolean, amount: number): CheckLine => ({
+    description,
+    taxable,
+    amount,
+    isLabor: null,
+  });
+
+  it('a taxed paint job on a home invoice is labor, not a separated contract', () => {
+    const list = checks({
+      document: 'invoice',
+      taxRatePercent: 8.25,
+      lines: [invoiceLine('Paint interior walls', true, 2400), invoiceLine('Drywall and mud', false, 400)],
+    });
+    expect(ids(list)).toEqual(['residential-labor-taxed']);
+    expect(list[0]!.level).toBe('warn');
+  });
+
+  it('an untyped estimate line that reads as trade work is labor too', () => {
+    const list = checks({
+      taxRatePercent: 8.25,
+      lines: [material, { description: 'Electrician rough-in', taxable: true, amount: 1800, isLabor: null }],
+    });
+    expect(ids(list)).toEqual(['residential-labor-taxed']);
+  });
+
+  it('a taxed subcontractor line that says nothing is questioned, not called materials', () => {
+    const list = checks({
+      taxRatePercent: 8.25,
+      lines: [
+        { ...material, taxable: false },
+        { description: 'Tile sub — master bath', taxable: true, amount: 3200, isLabor: null },
+        { description: 'Countertop fabricator', taxable: true, amount: 2100, isLabor: null },
+      ],
+    });
+    expect(ids(list)).toEqual(['residential-taxed-unclear']);
+    expect(list[0]!.body).toMatch(/“Tile sub — master bath” and 1 other line are taxed/);
+  });
+
+  it('an estimate with every line taxed gets the same prompt an invoice does', () => {
+    const list = checks({
+      document: 'estimate',
+      taxRatePercent: 8.25,
+      lines: [
+        { description: 'Cabinets', taxable: true, amount: 5000, isLabor: null },
+        { description: 'Tile sub', taxable: true, amount: 3000, isLabor: null },
+      ],
+    });
+    expect(ids(list)).toEqual(['residential-all-taxed']);
+  });
+
+  it('taxed haul-off alone is correct and still leaves the materials tax to settle', () => {
+    const haul: CheckLine = { description: 'Dumpster haul-off', taxable: true, amount: 350, isLabor: null };
+    const list = checks({ taxRatePercent: 8.25, lines: [{ ...material, taxable: false }, labor, haul] });
+    expect(ids(list)).toEqual(['residential-lump-sum-materials']);
   });
 });
 

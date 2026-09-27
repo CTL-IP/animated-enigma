@@ -30,7 +30,8 @@ These come from Patrick and are not negotiable.
 ### Git
 
 - Branch: **`claude/loving-pasteur-hyl6er`**. Never push elsewhere without
-  explicit permission.
+  explicit permission. The hooks read it from `.claude/hooks/designated-branch`;
+  when Patrick names a new branch, that file and this line change together.
 - `git push -u origin claude/loving-pasteur-hyl6er`, retrying up to four
   times on network failure with 2s/4s/8s/16s backoff.
 - Commit trailer, every time:
@@ -110,7 +111,7 @@ otherwise held only by my remembering them.
 |---|---|---|
 | `verify-evidence.sh` | Stop | Runs typecheck, lint, tests (and the RLS suite when SQL changed). **Blocks the turn on failure.** |
 | `check-schema-completeness.sh` | Stop | Names which of the four schema follow-through steps are still missing |
-| `guard-push.sh` | PreToolUse / Bash | **Denies** any push to a branch other than the designated one, and any force-push |
+| `guard-push.sh` | PreToolUse / Bash | **Denies** any push to a branch other than the one in `designated-branch`, and any force-push |
 | `session-state.sh` | SessionStart | Reports branch, working state, migration count, and what's blocked on Patrick |
 
 `verify-evidence.sh` exists because rule 6 is the one that matters most, and
@@ -321,12 +322,12 @@ Not "Warning: incomplete data." Not "Invalid range."
 
 ## Current state
 
-- **917 unit tests** across 49 files
-- **214 real-Postgres RLS assertions**
-- **Texas tax ledger:** 43 facts — 37 confirmed, 4 partly confirmed, 2 not
-  settled — checked 2026-09-26 through search excerpts of Comptroller pages
-  (the site itself is blocked in the build environment). Refresh with the
-  `texas-tax-refresh` workflow.
+- **935 unit tests** across 49 files
+- **216 real-Postgres RLS assertions**
+- **Texas tax ledger:** 44 facts — 38 confirmed, 5 partly confirmed, 1 not
+  settled — checked 2026-09-26 (two on 2026-09-27) through search excerpts of
+  Comptroller pages and the Tax Code (the Comptroller's site itself is blocked
+  in the build environment). Refresh with the `texas-tax-refresh` workflow.
 - **50 tables**, all `ENABLE` + `FORCE` RLS
 - Migrations through `0048` applied to the live project and verified
 - Security advisor: three pre-existing WARNs on `has_role` / `is_member_of` /

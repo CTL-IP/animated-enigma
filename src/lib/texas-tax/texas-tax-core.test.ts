@@ -15,6 +15,7 @@ import {
   type ContractFacts,
   type DueDate,
 } from './texas-tax-core';
+import { weakestStatus } from './ledger';
 
 function due(result: DueDate | { error: string }): DueDate {
   if ('error' in result) throw new Error(result.error);
@@ -212,17 +213,27 @@ describe('classifyContract', () => {
     expect(mixed.ledger).toEqual(['multiple-use-property']);
   });
 
-  it('government and exempt customers: no tax; lump-sum materials flagged as unsettled', () => {
+  it('government and exempt customers: no tax on the job', () => {
     const gov = classifyContract(job({ customer: 'government', contractForm: 'separated' }));
     expect(gov).toMatchObject({ customerTaxBase: 'none', materials: 'resale-certificate', status: 'confirmed' });
-
-    const govLump = classifyContract(job({ customer: 'government', propertyUse: 'nonresidential' }));
-    expect(govLump).toMatchObject({ customerTaxBase: 'none', materials: 'undetermined', status: 'unresolved' });
-    expect(govLump.ledger).toContain('exempt-lump-sum-materials');
 
     const church = classifyContract(job({ customer: 'exempt-organization', contractForm: 'separated' }));
     expect(church.steps.join(' ')).toMatch(/exemption certificate/);
     expect(church.ledger).toContain('exempt-organization-customers');
+  });
+
+  it('an exempt contract lets a lump-sum contractor buy materials on an exemption certificate (§151.311)', () => {
+    const govLump = classifyContract(job({ customer: 'government', propertyUse: 'nonresidential' }));
+    expect(govLump).toMatchObject({ customerTaxBase: 'none', materials: 'exemption-certificate', status: 'confirmed' });
+    expect(govLump.headline).toMatch(/don’t price tax into them/);
+    expect(govLump.steps.join(' ')).toMatch(/Ask the agency for an exemption certificate/);
+    expect(govLump.steps.join(' ')).toMatch(/Tools and equipment you keep aren’t covered/);
+    expect(govLump.ledger).toEqual(['government-customers', 'exempt-lump-sum-materials']);
+
+    const churchLump = classifyContract(job({ customer: 'exempt-organization' }));
+    expect(churchLump).toMatchObject({ materials: 'exemption-certificate', status: 'confirmed' });
+    // The organization's own certificate is already the first step; no agency.
+    expect(churchLump.steps.join(' ')).not.toMatch(/agency/);
   });
 
   it('always says something a person can act on', () => {
@@ -439,6 +450,17 @@ describe('latePayment', () => {
     ).toMatchObject({ penaltyPct: 10 });
   });
 
+  it('the notice tier is 20% in all — never 5% plus 10%', () => {
+    // Five days late, paid after a notice: the Comptroller's schedule has no 15%.
+    const r = latePayment({ ...base, paidDate: '2026-01-25', noticeDate: '2026-01-22' });
+    expect(r).toMatchObject({ daysLate: 5, penaltyPct: 20, penalty: 200 });
+    expect('summary' in r && r.summary).toMatch(/^5 days late, after the Notice of Tax Due date: 20% penalty/);
+  });
+
+  it('refuses a notice dated before the tax was due', () => {
+    expect(latePayment({ ...base, paidDate: '2026-02-01', noticeDate: '2026-01-10' })).toHaveProperty('error');
+  });
+
   it('interest starts on day 61', () => {
     expect(latePayment({ ...base, paidDate: '2026-03-21' })).toMatchObject({
       interestStartsOn: '2026-03-22',
@@ -477,9 +499,19 @@ describe('franchisePosition', () => {
   });
 
   it('says unknown, not no, for a year without a recorded threshold', () => {
-    const r = franchisePosition(2027, 100);
+    const r = franchisePosition(2028, 100);
     expect(r).toMatchObject({ threshold: null, atOrBelowThreshold: null });
     expect('message' in r && r.message).toMatch(/No threshold is recorded/);
+  });
+
+  it('answers the May 2027 report, and cites the weaker evidence it rests on', () => {
+    const r = franchisePosition(2027, 2_000_000);
+    expect(r).toMatchObject({ threshold: 2_650_000, atOrBelowThreshold: true });
+    expect('ledger' in r && r.ledger).toContain('franchise-no-tax-due-2027');
+    expect('ledger' in r && weakestStatus(r.ledger)).toBe('partial');
+    // 2026 answers still rest on the confirmed fact alone.
+    const r2026 = franchisePosition(2026, 2_000_000);
+    expect('ledger' in r2026 && r2026.ledger).not.toContain('franchise-no-tax-due-2027');
   });
 
   it('reminds a combined group to test the group’s revenue', () => {

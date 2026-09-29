@@ -1,7 +1,58 @@
-import { and, eq, asc, desc } from 'drizzle-orm';
+import { and, eq, asc, desc, sql } from 'drizzle-orm';
 import { getDb, schema } from '@/db';
 import type { LineType, VersionStatus } from './estimate-core';
 import type { Unit } from '@/lib/catalog/catalog-core';
+
+export interface EstimateOverviewRow {
+  projectId: string;
+  projectNumber: string;
+  projectName: string;
+  clientName: string | null;
+  versionId: string;
+  versionNumber: number;
+  name: string | null;
+  status: VersionStatus;
+  finalPrice: string | null;
+  grossMarginPct: string | null;
+  createdAt: Date;
+}
+
+/**
+ * The latest estimate version for every project that has one — the org-wide
+ * overview the top-level Estimates screen shows. `distinct on` picks the
+ * highest version per project directly in SQL rather than fetching every
+ * version and filtering in JS, which would grow with the estimate's revision
+ * history instead of the project count.
+ */
+export async function listEstimatesForOrg(organizationId: string): Promise<EstimateOverviewRow[]> {
+  const db = getDb();
+  const E = schema.estimateVersions;
+  const P = schema.projects;
+  const rows = await db
+    .selectDistinctOn([E.projectId], {
+      projectId: P.id,
+      projectNumber: P.projectNumber,
+      projectName: P.name,
+      clientName: schema.clients.displayName,
+      versionId: E.id,
+      versionNumber: E.versionNumber,
+      name: E.name,
+      status: E.status,
+      finalPrice: E.finalPrice,
+      grossMarginPct: E.grossMarginPct,
+      createdAt: E.createdAt,
+    })
+    .from(E)
+    .innerJoin(P, eq(P.id, E.projectId))
+    .leftJoin(schema.clients, eq(schema.clients.id, P.clientId))
+    .where(and(eq(E.organizationId, organizationId), sql`${P.deletedAt} is null`))
+    .orderBy(E.projectId, desc(E.versionNumber));
+  // `distinct on` requires the leading ORDER BY to match its own columns, so
+  // the newest-first display order is applied here instead of in SQL.
+  return (rows as EstimateOverviewRow[]).sort(
+    (a, b) => b.createdAt.getTime() - a.createdAt.getTime(),
+  );
+}
 
 export interface EstimateVersionRow {
   id: string;

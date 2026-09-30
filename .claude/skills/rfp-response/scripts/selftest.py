@@ -12,7 +12,7 @@ The fixture deliberately contains the traps that have bitten real solicitations:
   * a contents-list entry with no body text behind it
   * a price table in "Item | UOM | $ -" form under "Section | UOM | Price" headers
 Formula recalculation needs LibreOffice (soffice); it is skipped, and said so, if absent.
-Requires: python-docx, openpyxl, pyyaml.
+Requires: python-docx, openpyxl, pyyaml (PyMuPDF and soffice optional).
 """
 from __future__ import annotations
 
@@ -217,6 +217,42 @@ def main(argv: list[str]) -> int:
         clean.write_text("All done.\n", encoding="utf8")
         cp = run(HERE / "scan_placeholders.py", clean, expect_rc=None)
         check("scanner exits 0 on a finished file", cp.returncode == 0)
+        # ------------------------------------------------------ build_package
+        print("build_package.py")
+        pk = work / "pk"
+        (pk / "src").mkdir(parents=True)
+        for n in ("ext", "intl"):
+            (pk / "src" / f"{n}.md").write_text("# Tab\n\nWe are {{firm.legal_name}}. [[FILL: x]]\n", encoding="utf8")
+        (pk / "intake.yaml").write_text("firm:\n  legal_name: Example LLC\n", encoding="utf8")
+        agency = None
+        try:
+            import pymupdf
+            agency = pk / "agency.pdf"
+            a = pymupdf.open()
+            for i in range(3):
+                a.new_page().insert_text((72, 72), f"agency page {i + 1}")
+            a.save(agency)
+        except ImportError:
+            pass
+        manifest = {"intake": "intake.yaml", "docs": [
+            {"src": "src/ext.md", "name": "Tab1", "audience": "external"},
+            {"src": "src/intl.md", "name": "Memo", "audience": "internal"}]}
+        if agency:
+            manifest["docs"][0]["append_pdf_pages"] = [{"pdf": "agency.pdf", "pages": [1, 3], "title": "Agency pages"}]
+        (pk / "package.yaml").write_text(json.dumps(manifest), encoding="utf8")  # JSON is valid YAML
+        cp = run(HERE / "build_package.py", pk / "package.yaml", "--no-pdf", expect_rc=None)
+        check("build_package builds docx for both docs and exits 1 while flags remain",
+              cp.returncode == 1 and (pk / "out/docx/Tab1.docx").exists() and (pk / "out/docx/Memo.docx").exists(), cp.stdout)
+        check("build report counts 1 [[FILL]] per document", cp.stdout.count("| 1 | 0 | 0 |") == 2, cp.stdout)
+        if soffice and agency:
+            cp = run(HERE / "build_package.py", pk / "package.yaml", expect_rc=None)
+            import pymupdf
+            tab = pymupdf.open(pk / "out/pdf/Tab1.pdf")
+            bundle = pymupdf.open(pk / "out/Proposal-Package.pdf")
+            check("agency pages appended after a title page (doc + 1 title + 2 pages)", len(tab) >= 4 and "agency page 3" in tab[len(tab) - 1].get_text(), str(len(tab)))
+            check("bundle holds external documents only, with one bookmark", len(bundle) == len(tab) and len(bundle.get_toc()) == 1, f"{len(bundle)} vs {len(tab)}")
+        else:
+            print("  skip  PDF build checks need soffice and PyMuPDF")
     finally:
         if not keep:
             shutil.rmtree(work, ignore_errors=True)

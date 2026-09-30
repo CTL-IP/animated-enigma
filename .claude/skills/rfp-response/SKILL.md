@@ -138,13 +138,22 @@ report. If a form exists only as an image, print-and-sign the agency's own page 
 use the issuing authority's current edition and say so. Flag forms whose edition is old.
 
 ### 9. Assemble and gate
-Build: `python scripts/md_to_docx.py draft.md out.docx --intake intake.yaml`.
-Gate: `python scripts/scan_placeholders.py bid/out bid/src` — exit 1 while any `[[FILL]]`,
-unresolved `{{token}}` or template leftover remains. Verify independently (a second
-agent or person who did not write it): every register row answered, dates and names
-consistent across documents, no fact without a source, totals reconcile, file names and
-sizes meet the portal's limits. Only then call the package ready — and say exactly what
-the owner still has to do.
+Write a `package.yaml` manifest (see the docstring in `scripts/build_package.py`) listing each
+draft, its audience (`external` goes to the agency, `internal` does not) and any agency-supplied PDF pages
+to append (image-only forms are printed, completed and signed as issued). Then:
+`python scripts/build_package.py package.yaml` builds every `.docx` and `.pdf`, merges the external
+documents into one bookmarked PDF, and prints a build report with the count of unfinished items per
+document. It exits 1 while any `[[FILL]]`, unresolved `{{token}}` or template leftover remains — that is the
+gate, not a suggestion. For a single file: `scripts/md_to_docx.py draft.md out.docx --intake intake.yaml`,
+and `scripts/scan_placeholders.py DIR` to recount.
+
+Then verify independently — a second agent or person who did not write it (the `bid-verifier` subagent is
+written for this): every register row answered, dates and names consistent across documents, no fact
+without a source, totals reconcile, price schedules agree, file names and sizes meet the portal's limits.
+Only then call the package ready — and say exactly what the owner still has to do.
+
+`python scripts/selftest.py` exercises every script on a synthetic solicitation; run it after changing
+any script.
 
 ## When the solicitation is HUD-funded or a housing authority's
 Read `hud-pha-procurement` for the forms (HUD-5369-B, HUD-5370-C, 50071, Section 3,

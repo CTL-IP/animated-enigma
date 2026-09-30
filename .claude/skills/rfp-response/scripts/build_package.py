@@ -3,7 +3,8 @@
 
 Reads package.yaml, builds every document, and writes a build report. For each document:
   Markdown -> .docx (md_to_docx.py, facts from the intake file) -> .pdf (LibreOffice, if installed)
-External documents are merged into one bookmarked PDF bundle; internal documents are not.
+Documents with audience "external" are merged into one bookmarked PDF bundle; "external-separate" and
+"internal" documents are built but not bundled.
 Pages from the agency's own PDF (forms that exist only as images) can be appended to a document.
 The report counts what is still unfinished ([[FILL]] flags, unresolved {{tokens}}) per document.
 
@@ -14,7 +15,8 @@ Manifest (YAML):
   docs:
     - src: src/10-tab1-letter.md
       name: Tab1-Letter-of-Interest    # file stem; default = src stem
-      audience: external               # external | internal
+      audience: external               # external (bundled) | external-separate (built, not bundled,
+                                       # e.g. questions sent on their own) | internal
       append_pdf_pages:                # optional: agency-supplied pages, appended after this document
         - {pdf: in/Solicitation.pdf, pages: [57, 63, 64], title: "Agency pages to complete and sign"}
 Paths are relative to the manifest's folder.

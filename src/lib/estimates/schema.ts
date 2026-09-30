@@ -26,6 +26,20 @@ const percent = z
   .optional()
   .transform((v) => (v === '' || v === undefined ? 0 : Number(v) / 100));
 
+/**
+ * Always stated. Both line forms send 'true' or 'false', so a line without one
+ * didn't come from them and is refused rather than guessed. Guessing is how
+ * this broke: a missing value read as taxed, and an unticked checkbox sends
+ * nothing — so unticking Taxable saved it taxed.
+ *
+ * A ticked box arrives as a hidden 'false' followed by the box's 'true', so
+ * read the form with `Object.fromEntries` (last value wins), not
+ * `formData.get` (first).
+ */
+const taxableFlag = z
+  .enum(['true', 'false'], { message: 'Say whether the line is taxable.' })
+  .transform((v) => v === 'true');
+
 /** Add a line from a catalog item — costs snapshot server-side from the item. */
 export const addCatalogLineSchema = z.object({
   estimateVersionId: z.string().uuid(),
@@ -42,10 +56,7 @@ export const lineSchema = z.object({
   unit: z.enum(UNITS).default('each'),
   unitCost: money.default(0),
   wasteFactorPct: percent,
-  taxable: z
-    .union([z.literal('true'), z.literal('false'), z.literal('')])
-    .optional()
-    .transform((v) => v !== 'false'),
+  taxable: taxableFlag,
 });
 
 export const updateLineSchema = z.object({
@@ -56,10 +67,7 @@ export const updateLineSchema = z.object({
   unit: z.enum(UNITS),
   unitCost: money,
   wasteFactorPct: percent,
-  taxable: z
-    .union([z.literal('true'), z.literal('false'), z.literal('')])
-    .optional()
-    .transform((v) => v !== 'false'),
+  taxable: taxableFlag,
 });
 
 export const ratesSchema = z.object({

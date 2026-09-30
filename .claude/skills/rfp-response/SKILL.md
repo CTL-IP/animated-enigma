@@ -45,20 +45,29 @@ bid/
 
 ## Procedure
 
-### 1. Extract and inventory the solicitation
-`python scripts/extract_rfp.py SOLICITATION.docx bid/in/extract` produces text in
-document order (tables as `a | b | c`, text boxes tagged), every embedded image
-(single-bitmap EMF files become PNG — scanned certificates hide there), headers and
-footers, and `inventory.json`.
+### 1. Extract, render, and reconcile the solicitation
+```
+soffice --headless --convert-to pdf --outdir bid/in SOLICITATION.docx
+python scripts/extract_rfp.py SOLICITATION.docx bid/in/extract --pdf bid/in/SOLICITATION.pdf
+```
+This produces text in document order (tables as `a | b | c`, text boxes tagged), every
+embedded image (single-bitmap EMF files become PNG — scanned certificates hide there),
+headers and footers, and `inventory.json`.
 
-Read `inventory.json` before you read anything else. It answers four questions a plain
-read misses: **Which forms does the contents list promise that have no text?** (missing
-from the file, or image-only — open the images). **Do headers or footers name a
-different solicitation?** (recycled boilerplate: expect stale clauses.) **What are all
-the dates and times?** **Is anything in a text box or image?**
+**An extraction is a claim, not a fact — reconcile it with the render.** `--pdf` lists every
+line the PDF shows that the text lacks, and every page that is only an image. On a real HUD
+solicitation the first naive extraction silently dropped all text wrapped in Word
+"smart tags" (states, street addresses, venue — it read "laws of the State of ." as a blank
+and invented a drafting defect), and three required certifications were image-only pages
+that looked "missing" from the text. Do not report a form missing, or a blank left in a
+contract, until you have looked at the PDF page. Expect `pdf_lines_missing_from_extraction: 0`
+before you start shredding.
 
-Also render the docx to PDF (`soffice --headless --convert-to pdf`) and look at the pages
-that matter. Extracted text lies about layout.
+Then read `inventory.json`. It answers what a plain read misses: **Which forms does the
+contents list promise that have no text?** (missing, or image-only — open the page.)
+**Do headers or footers name a different solicitation?** (recycled boilerplate: expect stale
+clauses.) **What are all the dates and times?** **Is anything in a text box or image?**
+Open every image-only page and read it; transcribe what matters and mark it "transcribed".
 
 ### 2. Shred into a requirement register
 One row per obligation, deadline, deliverable, form-field group, or scored factor —

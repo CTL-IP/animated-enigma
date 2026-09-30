@@ -12,8 +12,11 @@ of contents promises attachments that are not in the file. This script produces:
                        and contents-list entries with no body text behind them
   OUT/media/           every embedded image; single-bitmap EMF files are converted to PNG
 
-Usage: extract_rfp.py SOLICITATION.docx OUT_DIR
-Requires: python-docx, pillow.  (PDF rendering is separate: soffice --headless --convert-to pdf)
+Usage: extract_rfp.py SOLICITATION.docx OUT_DIR [--pdf RENDERED.pdf]
+  Render the PDF first (soffice --headless --convert-to pdf SOLICITATION.docx). With --pdf the
+  inventory also lists pages that are only an image (scanned forms) and any line the PDF shows
+  that the extraction missed. Never trust an extraction you have not diffed against the render.
+Requires: python-docx, pillow; PyMuPDF for --pdf.
 """
 from __future__ import annotations
 
@@ -26,8 +29,6 @@ from pathlib import Path
 
 import docx
 from docx.oxml.ns import qn
-from docx.table import Table
-from docx.text.paragraph import Paragraph
 
 MONTHS = "January|February|March|April|May|June|July|August|September|October|November|December"
 DATE_RE = re.compile(rf"\b(?:{MONTHS}|Ocotber|Septmber)\s+\d{{1,2}}(?:st|nd|rd|th)?,?\s+\d{{4}}\b", re.I)
@@ -39,39 +40,72 @@ MONEY_RE = re.compile(r"\$\s?\d[\d,]*(?:\.\d+)?")
 RFPNO_RE = re.compile(r"\b(?:RFP|RFQ|IFB|ITB)[\s#-]*\d{4}-\d+\b", re.I)
 
 
+W = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}"
+SKIP = {W + "pPr", W + "rPr", W + "del", W + "txbxContent", W + "delText", W + "instrText"}
+
+
+def ptext(el) -> str:
+    """All visible text under a w:p, in order.
+
+    python-docx's Paragraph.text only reads direct w:r children, so it silently drops text
+    wrapped in <w:smartTag> (Word tags states, street addresses, dates), <w:hyperlink>,
+    <w:ins> and similar. Walking every descendant keeps it. Text boxes are skipped here and
+    read on their own so they are not duplicated.
+    """
+    out: list[str] = []
+
+    def walk(node) -> None:
+        for child in node:
+            tag = child.tag
+            if tag in SKIP:
+                continue
+            if tag == W + "t":
+                out.append(child.text or "")
+            elif tag == W + "tab":
+                out.append("\t")
+            elif tag in (W + "br", W + "cr"):
+                out.append("\n")
+            else:
+                walk(child)
+
+    walk(el)
+    return "".join(out)
+
+
 def iter_blocks(document):
     body = document.element.body
     for child in body.iterchildren():
         if child.tag == qn("w:p"):
-            yield Paragraph(child, document)
+            yield child
         elif child.tag == qn("w:tbl"):
-            yield Table(child, document)
+            yield child
 
 
-def textbox_texts(par) -> list[str]:
+def textbox_texts(p_el) -> list[str]:
     out, last = [], None
-    for box in par._p.iter(qn("w:txbxContent")):
-        lines = []
-        for p in box.iter(qn("w:p")):
-            t = "".join(x.text or "" for x in p.iter(qn("w:t"))).strip()
-            if t:
-                lines.append(t)
-        block = "\n".join(lines)
+    for box in p_el.iter(qn("w:txbxContent")):
+        lines = [ptext(p).strip() for p in box.iter(qn("w:p"))]
+        block = "\n".join(l for l in lines if l)
         if block and block != last:  # Word stores Choice + Fallback copies; keep one
             out.append(block)
         last = block
     return out
 
 
-def table_rows(tbl) -> list[str]:
+def table_rows(tbl_el) -> list[str]:
     rows = []
-    for r in tbl.rows:
-        seen, cells = set(), []
-        for c in r.cells:
-            if id(c._tc) in seen:
-                continue
-            seen.add(id(c._tc))
-            cells.append(c.text.strip().replace("\n", " / "))
+    for tr in tbl_el.findall(qn("w:tr")):
+        cells = []
+        for tc in tr.findall(qn("w:tc")):
+            parts = []
+            for child in tc:
+                if child.tag == qn("w:p"):
+                    t = ptext(child).strip()
+                    if t:
+                        parts.append(t)
+                elif child.tag == qn("w:tbl"):
+                    parts.append("[" + " // ".join(table_rows(child)) + "]")
+            cells.append(" / ".join(parts))
         rows.append(" | ".join(cells))
     return rows
 
@@ -139,7 +173,48 @@ def toc_audit(lines: list[str]) -> list[dict]:
     return flagged
 
 
+def pdf_crosscheck(text: str, pdf_path: Path) -> dict:
+    """Diff a rendered PDF against the extracted text.
+
+    Two things a text extraction cannot tell you on its own: lines the PDF shows that the
+    extraction never captured (a parsing gap), and pages that are nothing but an image
+    (a scanned form or certificate: open the page and read it).
+    """
+    import pymupdf  # PyMuPDF
+
+    def norm(x: str) -> str:
+        return re.sub(r"[^a-z0-9]+", "", x.lower())
+
+    blob = norm(text)
+    doc = pymupdf.open(pdf_path)
+    repeated: dict[str, int] = {}
+    pages = []
+    for i, page in enumerate(doc, 1):
+        lines = [l.strip() for l in page.get_text().split("\n") if l.strip()]
+        pages.append((i, lines, len(page.get_images()), len(page.get_text().strip())))
+        for l in set(lines):
+            repeated[l] = repeated.get(l, 0) + 1
+    running = {l for l, n in repeated.items() if n > max(3, len(doc) // 4)}  # headers/footers
+    missing, image_only = [], []
+    for i, lines, n_img, n_chars in pages:
+        if n_chars < 200 and n_img:
+            image_only.append(i)
+        for l in lines:
+            if l in running:
+                continue
+            body = re.sub(r"^\(?[0-9A-Za-z]{1,3}[.)]\s*", "", l)  # list labels are not in the docx text
+            if len(norm(body)) >= 12 and norm(body) not in blob:
+                missing.append({"page": i, "line": l})
+    return {"pdf_pages": len(doc), "pages_with_little_text_and_images": image_only,
+            "pdf_lines_missing_from_extraction": len(missing), "examples": missing[:40]}
+
+
 def main(argv: list[str]) -> int:
+    pdf_arg = None
+    if "--pdf" in argv:
+        k = argv.index("--pdf")
+        pdf_arg = Path(argv[k + 1])
+        argv = argv[:k] + argv[k + 2:]
     if len(argv) != 2:
         print(__doc__)
         return 2
@@ -149,8 +224,8 @@ def main(argv: list[str]) -> int:
 
     lines: list[str] = []
     for blk in iter_blocks(document):
-        if isinstance(blk, Paragraph):
-            t = blk.text.strip()
+        if blk.tag == qn("w:p"):
+            t = ptext(blk).strip()
             if t:
                 lines.append(t)
             for tb in textbox_texts(blk):
@@ -221,10 +296,14 @@ def main(argv: list[str]) -> int:
         "textboxes": sum(1 for l in lines if l.startswith("[TEXTBOX]")),
         "contents_entries_without_body_text": toc_audit(lines),
     }
+    if pdf_arg:
+        inv["pdf_crosscheck"] = pdf_crosscheck(full + "\n" + hf_text, pdf_arg)
     (out / "inventory.json").write_text(json.dumps(inv, indent=2), encoding="utf8")
     print(f"{out/'rfp.txt'}: {len(lines)} lines; {len(images)} image refs; "
           f"{len(inv['contents_entries_without_body_text'])} contents entries with no body text; "
-          f"{len(stale)} foreign solicitation numbers in headers/footers")
+          f"{len(stale)} foreign solicitation numbers in headers/footers"
+          + (f"; PDF cross-check: {inv['pdf_crosscheck']['pdf_lines_missing_from_extraction']} PDF lines not in text, "
+             f"image-only pages {inv['pdf_crosscheck']['pages_with_little_text_and_images']}" if pdf_arg else ""))
     return 0
 
 

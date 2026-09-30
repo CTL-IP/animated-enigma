@@ -74,6 +74,41 @@ is a public-shaped file in a repository. Reference a variable by name only.
 
 ## Log
 
+## 2026-09-30 — Property type and state set on live data; estimate lines can't be made untaxed
+**By:** Claude
+
+**Live data.** The owner answered the open item "set the property type and the
+state on every property": Texas, single-family homes.
+- Every property on the live organization now has `property_type =
+  'Single-family'` and `address.state = 'TX'`.
+- Only blank fields were filled. Each update named its row and required the
+  field to still be blank, so nothing entered by hand was overwritten.
+- One address held only a street line. Its state came from the lead it was
+  converted from, whose address names the city and state. Its city and ZIP are
+  still blank: only the type and state were asked for.
+- Checked: `scripts/texas-tax-audit.sql` through `texas-tax:audit` now
+  evaluates the organization's estimate, which the checks skipped while either
+  value was missing. The findings went to the owner, not here, because this
+  repository is public.
+
+**Found, not fixed: an estimate line can't be made untaxed on screen.**
+- `lineSchema` and `updateLineSchema` in `src/lib/estimates/schema.ts` read a
+  missing `taxable` as true (`v !== 'false'`).
+- The edit form's Taxable checkbox in `estimate-builder.tsx` sends nothing when
+  unticked. So unticking saves `true`, and editing an untaxed line for any
+  other reason taxes it.
+- The add-line form has no Taxable control, so every line added by hand is
+  taxed, labor included.
+- Only a line expanded from the cost catalog can come out untaxed; its labor
+  part is `taxable: false`.
+- Effect: labor on a Texas home job gets taxed, and the tax check's own advice
+  ("mark the labor lines not taxable") can't be followed on this screen.
+- Reproduced against the real schema: an unticked box parses to
+  `taxable: true`.
+- The invoice form already gets this right, with a hidden input carrying `true`
+  or `false`. The estimate forms need the same, and a test that unticking
+  sticks.
+
 ## 2026-09-27 — Correction: two exempt-contract passages the review fixes missed
 **By:** Claude
 

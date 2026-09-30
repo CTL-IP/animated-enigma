@@ -315,8 +315,8 @@ Not "Warning: incomplete data." Not "Invalid range."
 6. **Texas tax tooling.** Approve the `texas-tax` MCP server the first time Claude
    Code asks (a committed file can't approve it). Decide whether, and where, to
    host its HTTP connector — nothing is deployed. Set the property type and the
-   state on every property: the estimate and invoice tax checks run only when
-   they know both.
+   state on every new property — the existing ones were set on 2026-09-30. The
+   estimate and invoice tax checks run only when they know both.
 
 ---
 

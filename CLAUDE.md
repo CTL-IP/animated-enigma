@@ -29,10 +29,10 @@ These come from Patrick and are not negotiable.
 
 ### Git
 
-- Branch: **`claude/loving-pasteur-hyl6er`**. Never push elsewhere without
+- Branch: **`claude/trusting-tesla-8u5367`**. Never push elsewhere without
   explicit permission. The hooks read it from `.claude/hooks/designated-branch`;
   when Patrick names a new branch, that file and this line change together.
-- `git push -u origin claude/loving-pasteur-hyl6er`, retrying up to four
+- `git push -u origin claude/trusting-tesla-8u5367`, retrying up to four
   times on network failure with 2s/4s/8s/16s backoff.
 - Commit trailer, every time:
   ```

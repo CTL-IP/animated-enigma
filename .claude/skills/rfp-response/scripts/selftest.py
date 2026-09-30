@@ -217,6 +217,20 @@ def main(argv: list[str]) -> int:
         clean.write_text("All done.\n", encoding="utf8")
         cp = run(HERE / "scan_placeholders.py", clean, expect_rc=None)
         check("scanner exits 0 on a finished file", cp.returncode == 0)
+        wmd = work / "widths.md"
+        wmd.write_text("| # | Why it matters | Pri |\n|---|---|---|\n| 1 | " + "A long explanation of why this matters to the price. " * 4 + " | P1 |\n\n"
+                       "<!--\nmulti-line note to the writer\nmust not print\n-->\n\n"
+                       "| Step {w=1} | What happens {w=5} |\n|---|---|\n| 1 | Notice arrives. |\n", encoding="utf8")
+        wdocx = work / "widths.docx"
+        run(HERE / "md_to_docx.py", wmd, wdocx)
+        wd = docx.Document(wdocx)
+        t1 = [round(c.width.inches, 2) for c in wd.tables[0].rows[0].cells]
+        t2 = [round(c.width.inches, 2) for c in wd.tables[1].rows[0].cells]
+        check("table columns are sized to their text (long column wider than a narrow one)", t1[1] > 3 * t1[0] and t1[0] == t1[2], str(t1))
+        check("{w=N} header markers set relative widths and are removed from the text",
+              abs(t2[1] / t2[0] - 5) < 0.2 and wd.tables[1].rows[0].cells[0].text == "Step", str(t2))
+        check("multi-line HTML comments are dropped", not any("multi-line note" in p.text for p in wd.paragraphs))
+
         # ------------------------------------------------------ build_package
         print("build_package.py")
         pk = work / "pk"

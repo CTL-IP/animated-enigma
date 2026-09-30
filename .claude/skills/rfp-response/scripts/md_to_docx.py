@@ -15,6 +15,10 @@ Front matter (optional, YAML between --- lines at the top of the .md):
 Supported Markdown: # to #### headings, paragraphs, - / * / 1. lists (two nesting
 levels), > callouts, GFM pipe tables, ``` code, --- rule, <!-- pagebreak -->,
 **bold**, *italic*, `code`, [ ] / [x] checkboxes, and [[FILL: ...]] flags.
+Other HTML comments (single or multi-line) are dropped, so they can carry notes to the writer.
+
+Table column widths: sized in proportion to the text in each column. To set them by hand, put a
+relative width in the header cell:  | Step {w=1} | What happens {w=5} |  (the marker is removed).
 
 Requires: python-docx, pyyaml.
 """
@@ -261,16 +265,66 @@ def parse_table(lines: list[str]) -> list[list[str]]:
     return rows
 
 
+WIDTH_RE = re.compile(r"\s*\{w=(\d+(?:\.\d+)?)\}\s*$")
+TEXT_WIDTH_IN = 6.5
+
+
+def column_widths(rows: list[list[str]], ncols: int, marked: list[float | None]) -> list[float]:
+    """Inches per column: hand-set weights where given, else proportional to the text in the column."""
+    weights: list[float] = []
+    for j in range(ncols):
+        if marked[j] is not None:
+            weights.append(float(marked[j]))
+            continue
+        lens = []
+        for r in rows:
+            cell = r[j] if j < len(r) else ""
+            cell = FILL_RE.sub(lambda m: m.group(0), cell)
+            lens.append(max((len(part) for part in cell.replace("<br>", "\n").split("\n")), default=0))
+        body = lens[1:] or lens
+        w = 0.5 * max(body) + 0.5 * (sum(body) / len(body))
+        weights.append(min(max(w, 6.0), 60.0))
+    if any(m is not None for m in marked):  # mixed: scale unmarked columns to the average marked weight
+        known = [w for w, m in zip(weights, marked) if m is not None]
+        scale = (sum(known) / len(known)) / 10.0
+        weights = [w if m is not None else w * scale for w, m in zip(weights, marked)]
+    total = sum(weights)
+    widths = [TEXT_WIDTH_IN * w / total for w in weights]
+    floor = 0.55
+    small = [i for i, w in enumerate(widths) if w < floor]
+    if small:
+        deficit = sum(floor - widths[i] for i in small)
+        big = [i for i in range(ncols) if i not in small]
+        room = sum(widths[i] for i in big)
+        widths = [floor if i in small else widths[i] * (1 - deficit / room) for i in range(ncols)]
+    return widths
+
+
 def add_table(doc: Document, rows: list[list[str]], accent: str) -> None:
     ncols = max(len(r) for r in rows)
+    marked: list[float | None] = [None] * ncols
+    header = rows[0]
+    for j in range(ncols):
+        m = WIDTH_RE.search(header[j]) if j < len(header) else None
+        if m:
+            marked[j] = float(m.group(1))
+            header[j] = WIDTH_RE.sub("", header[j])
+    widths = column_widths(rows, ncols, marked)
     tbl = doc.add_table(rows=len(rows), cols=ncols)
     tbl.style = "Table Grid"
     tbl.alignment = WD_TABLE_ALIGNMENT.CENTER
+    tbl.autofit = False
+    layout = OxmlElement("w:tblLayout")
+    layout.set(qn("w:type"), "fixed")
+    tbl._tbl.tblPr.append(layout)
+    for j, w in enumerate(widths):
+        tbl.columns[j].width = Inches(w)
     for i, r in enumerate(rows):
         row = tbl.rows[i]
         no_split(row)
         for j in range(ncols):
             cell = row.cells[j]
+            cell.width = Inches(widths[j])
             cell.text = ""
             par = cell.paragraphs[0]
             par.paragraph_format.space_after = Pt(2)
@@ -307,8 +361,16 @@ def convert(text: str, intake: dict, accent: str) -> tuple[Document, list[str]]:
         s = ln.strip()
         if not s:
             flush_para(); i += 1; continue
-        if s.startswith("<!--") and "pagebreak" in s:
-            flush_para(); doc.add_page_break(); i += 1; continue
+        if s.startswith("<!--"):
+            flush_para()
+            if "pagebreak" in s and s.rstrip().endswith("-->"):
+                doc.add_page_break()
+                i += 1
+                continue
+            while i < len(lines) and "-->" not in lines[i]:  # multi-line comment: drop it all
+                i += 1
+            i += 1
+            continue
         m = re.match(r"^(#{1,4})\s+(.*)$", s)
         if m:
             flush_para()

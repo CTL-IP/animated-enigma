@@ -74,6 +74,108 @@ is a public-shaped file in a repository. Reference a variable by name only.
 
 ## Log
 
+## 2026-09-30 — Estimate lines can be made untaxed; closes the note below
+**By:** Claude · **Commit:** 11ae90a
+
+This closes **"Found, not fixed: an estimate line can't be made untaxed on
+screen"** from the entry below.
+
+**What changed.**
+- **Both line forms send an explicit value.** A hidden `false` comes first and
+  the checkbox's `true` after it. The actions read the form with
+  `Object.fromEntries`, which keeps the last value.
+  - Unticking now saves `false`.
+  - Editing a line for any other reason (quantity, cost, type) leaves its box
+    as it was.
+- **The add-line form has a Taxable box.** It starts by line type and follows
+  the type until the person touches it:
+  - labor unticked; material and equipment ticked, as catalog expansion does;
+  - subcontractor, allowance and other ticked.
+- **The schema refuses a missing value** instead of reading it as taxed. The two
+  builder forms are the only callers of `addLine` and `updateLine`.
+
+**Decided.**
+- **Subcontractor, allowance and other start taxed.** The type can't say whether
+  such a line is labor or materials. Taxed is the column's default and is right
+  on a Texas commercial remodel. On a home job, the tax check asks about any
+  taxed line it can't tell is materials. Started untaxed, the line would be
+  invisible to that check, which reads only taxed lines.
+- **A missing value is refused, not read as false.** Reading it as false would
+  only move the silent guess to the other side.
+- **The box carries the value itself**, not the invoice form's controlled box
+  feeding a hidden input.
+  - After an add, React 19 resets the form's fields natively and leaves
+    component state alone. Its own event handlers are off during that reset.
+  - A model of the controlled pattern on Next's bundled React: after one labor
+    line, the box showed ticked while the hidden input held `false`, and the
+    next material line, box untouched, was sent untaxed.
+- **Rejected:** also defaulting by the job's property type, so labor starts
+  taxed on a commercial job. Not asked for, and the commercial check already
+  warns about untaxed lines.
+
+**Found, not fixed: the invoice form may show a box that isn't what it sends.**
+- The same model, with `useFormState` as the invoice form uses it: a box
+  unticked before a save came back ticked after it, while the hidden input still
+  sent `false`.
+- Not confirmed on the real invoice screen. There, Next may re-render the form
+  after the reset, which would put the box right.
+- To check on a deployed invoice: untick a line, save, look at the box, save
+  again, and see what was stored.
+
+**Verified.**
+- Typecheck, lint, 952 unit tests (50 files), `next build`.
+- RLS suite: 216 assertions. `test-setup-sql`: 50 tables, all RLS.
+- 14 new tests render the builder and read the form the way the actions do. On
+  the old code 11 of them fail, unticked saving `true` among them.
+- Run once, outside the suite: the real builder under Next's bundled React 19.2,
+  with real form actions and the post-add reset. 3 scenarios pass.
+
+**Not verified.**
+- The actions' database writes. The tests stop at the value parsed from the
+  form.
+- The screen against live data.
+
+**Live data is unchanged.** Labor added by hand before this is still taxed, and
+so is every line saved through the old edit form, whatever its box showed. On a
+home job the tax check flags taxed labor, and unticking it now works. Revisiting
+existing estimates is the owner's call; a locked one needs a new version to
+change.
+
+## 2026-09-30 — Property type and state set on live data; estimate lines can't be made untaxed
+**By:** Claude
+
+**Live data.** The owner answered the open item "set the property type and the
+state on every property": Texas, single-family homes.
+- Every property on the live organization now has `property_type =
+  'Single-family'` and `address.state = 'TX'`.
+- Only blank fields were filled. Each update named its row and required the
+  field to still be blank, so nothing entered by hand was overwritten.
+- One address held only a street line. Its state came from the lead it was
+  converted from, whose address names the city and state. Its city and ZIP are
+  still blank: only the type and state were asked for.
+- Checked: `scripts/texas-tax-audit.sql` through `texas-tax:audit` now
+  evaluates the organization's estimate, which the checks skipped while either
+  value was missing. The findings went to the owner, not here, because this
+  repository is public.
+
+**Found, not fixed: an estimate line can't be made untaxed on screen.**
+- `lineSchema` and `updateLineSchema` in `src/lib/estimates/schema.ts` read a
+  missing `taxable` as true (`v !== 'false'`).
+- The edit form's Taxable checkbox in `estimate-builder.tsx` sends nothing when
+  unticked. So unticking saves `true`, and editing an untaxed line for any
+  other reason taxes it.
+- The add-line form has no Taxable control, so every line added by hand is
+  taxed, labor included.
+- Only a line expanded from the cost catalog can come out untaxed; its labor
+  part is `taxable: false`.
+- Effect: labor on a Texas home job gets taxed, and the tax check's own advice
+  ("mark the labor lines not taxable") can't be followed on this screen.
+- Reproduced against the real schema: an unticked box parses to
+  `taxable: true`.
+- The invoice form already gets this right, with a hidden input carrying `true`
+  or `false`. The estimate forms need the same, and a test that unticking
+  sticks.
+
 ## 2026-09-27 — Correction: two exempt-contract passages the review fixes missed
 **By:** Claude
 

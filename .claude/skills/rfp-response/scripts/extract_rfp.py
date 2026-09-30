@@ -154,7 +154,9 @@ def toc_audit(lines: list[str]) -> list[dict]:
         end += 1
     entries = []
     for l in lines[start + 1: end]:
-        clean = re.sub(r"[.\u2026]{3,}\s*\d*$|\s+\d+$", "", l).strip(" \t:-")
+        # strip a page number only when it is clearly one: after dot leaders, a tab, or 2+ spaces.
+        # A bare trailing number ("... Code 2271", "Form HUD 50071") is part of the entry.
+        clean = re.sub(r"[.\u2026]{3,}\s*\d*$|\t\s*\d{1,3}$|\s{2,}\d{1,3}$", "", l).strip(" \t:-")
         for _ in range(3):
             clean = re.sub(r"^(?:Exhibit\s+[A-Z]:|[IVX]+\.|[a-z]\)|[A-Z]\.)\s*", "", clean).strip()
         if 6 <= len(clean) <= 90:

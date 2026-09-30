@@ -19,13 +19,22 @@ SCHEDULE FORMAT
   "sections": [ {"name": "Painting - Sections (Labor + Materials)", "trade": "painter",
                  "paint_materials": true,
                  "items": [ {"id": "A-007-003", "item": "Accent Wall", "uom": "sf",
-                             "basis": "L+M", "trade": "painter(optional override)"} ]} ],
+                             "basis": "L+M", "trade": "painter(optional override)",
+                             "hours": 0.02, "hours_confidence": "M", "hours_note": "why this many hours",
+                             "needs_materials": true, "sub_required": false} ]} ],
   "summary": [ {"name": "Carpet Cleaning (Labor Only)",
                 "items": [ {"item": "1 Bedroom", "uom": "each", "ref": "A-004-001"},
                            {"item": "B-only line", "uom": "each", "ref": null} ]} ],
   "site_table": {"sizes": ["Efficiency","1 Bdrm","2 Bdrm","3 Bdrm","4 Bdrm","5 Bdrm"],
                  "properties": [ {"name": "...", "units": 121, "address": "..."} ]}
 }
+Item fields (all optional): hours (starting ASSUMPTION per unit), hours_confidence (H/M/L), hours_note,
+needs_materials (price stays blank until a real material $/unit is entered), sub_required (price comes from
+a subcontract quote, not hours x rate).
+Inputs can be prefilled from a JSON file:  build ... --inputs inputs.json
+  {"overhead": 0.12, "profit": 0.15, "tax": 0.0825, "dha_paint": "N", "round_to": 0.05,
+   "rates": {"cleaner": 51.2, "painter": 51.2}}
+Only numbers that came from the owner belong there.
 Workbook sheets: README, Inputs, Schedule A, Attachment B, Site Table, Checks, Benchmarks.
 Requires: openpyxl.
 """
@@ -95,7 +104,7 @@ def style_header(ws, row: int, ncols: int) -> None:
         cell.alignment = Alignment(wrap_text=True, vertical="center")
 
 
-def build(schedule_path: str, out: str, bench_csv: str | None) -> None:
+def build(schedule_path: str, out: str, bench_csv: str | None, inputs: dict | None = None) -> None:
     sch = json.loads(Path(schedule_path).read_text(encoding="utf8"))
     wb = Workbook()
 
@@ -111,7 +120,9 @@ def build(schedule_path: str, out: str, bench_csv: str | None) -> None:
         "3. A price appears only when EVERY input it needs is a real number. A blank rate does not price as $0 -- the cell stays empty.",
         "4. Override price (column K) wins over the computed price: use it when you price a line by judgment. Explain overrides in Notes.",
         "5. Attachment B pulls its prices from Schedule A through the Ref ID, so the two schedules cannot disagree. B-only lines take their own input.",
-        "6. Checks shows what is still blank and whether the package is READY. Do not upload until it says READY.",
+        "6. Hours per unit are STARTING ASSUMPTIONS (estimator judgement, with a confidence letter and a note). They are not your production data: review every one, change what your crews would really do, then set 'reviewed' on Inputs to Y.",
+        "7. A line marked Materials needed stays blank until you enter a real material $/unit (price it at the store, with the sales-tax decision made). A line marked Sub required stays blank until you enter a subcontractor quote.",
+        "8. Checks shows what is still blank and whether the package is READY. Do not upload until it says READY.",
         "",
         "Nothing in this workbook is a price until you enter your inputs. Starting hours, where present, are assumptions to verify against your crews' actual production.",
     ], 1):
@@ -125,7 +136,8 @@ def build(schedule_path: str, out: str, bench_csv: str | None) -> None:
     wi["A1"], wi["A1"].font = "Pricing inputs (yellow = you fill)", Font(bold=True, size=12)
     rows = [("Overhead %  (e.g. 0.12 for 12%)", "OVH"), ("Profit %  (e.g. 0.10 for 10%)", "PROFIT"),
             ("Sales tax on materials you buy  (see tax research; e.g. 0.0825)", "TAX"),
-            ("DHA furnishes paint?  (Y / N)", "DHA_PAINT"), ("Round prices to nearest $  (e.g. 0.25)", "ROUNDTO")]
+            ("DHA furnishes paint?  (Y / N)", "DHA_PAINT"), ("Round prices to nearest $  (e.g. 0.25)", "ROUNDTO"),
+            ("Owner has reviewed every starting assumption (hours, trades, basis)?  (Y / N)", "REVIEWED")]
     for i, (label, name) in enumerate(rows, 3):
         wi.cell(row=i, column=1, value=label)
         c = wi.cell(row=i, column=2)
@@ -134,16 +146,25 @@ def build(schedule_path: str, out: str, bench_csv: str | None) -> None:
     dv = DataValidation(type="list", formula1='"Y,N"', allow_blank=True)
     wi.add_data_validation(dv)
     dv.add("B6")
-    wi["A10"], wi["B10"] = "Trade", "Burdened labor rate $/hour"
-    style_header(wi, 10, 2)
-    for i, t in enumerate(TRADES, 11):
+    dv.add("B8")
+    wi["A11"], wi["B11"] = "Trade", "Burdened labor rate $/hour"
+    style_header(wi, 11, 2)
+    for i, t in enumerate(TRADES, 12):
         wi.cell(row=i, column=1, value=t)
         c = wi.cell(row=i, column=2)
         c.fill, c.font, c.border = INPUT_FILL, BLUE, BOX
         c.number_format = '"$"#,##0.00'
-    last_rate = 10 + len(TRADES)
-    wb.defined_names["RK"] = DefinedName("RK", attr_text=f"Inputs!$A$11:$A${last_rate}")
-    wb.defined_names["RV"] = DefinedName("RV", attr_text=f"Inputs!$B$11:$B${last_rate}")
+    last_rate = 11 + len(TRADES)
+    wb.defined_names["RK"] = DefinedName("RK", attr_text=f"Inputs!$A$12:$A${last_rate}")
+    wb.defined_names["RV"] = DefinedName("RV", attr_text=f"Inputs!$B$12:$B${last_rate}")
+    if inputs:
+        for cell, key in (("B3", "overhead"), ("B4", "profit"), ("B5", "tax"), ("B6", "dha_paint"), ("B7", "round_to")):
+            if inputs.get(key) is not None:
+                wi[cell] = inputs[key]
+        for i in range(12, last_rate + 1):
+            v = (inputs.get("rates") or {}).get(wi.cell(row=i, column=1).value)
+            if v is not None:
+                wi.cell(row=i, column=2, value=v)
     wi.cell(row=last_rate + 2, column=1,
             value="Burdened = wages + payroll taxes + workers' comp + insurance + vehicle/tools per productive hour. Not the wage.")
     wi.column_dimensions["A"].width = 62
@@ -153,7 +174,7 @@ def build(schedule_path: str, out: str, bench_csv: str | None) -> None:
     sa = wb.create_sheet("Schedule A")
     heads = ["ID", "Section", "Item", "UOM", "Basis", "Trade", "Hours / unit", "Material $ / unit", "Sub $ / unit",
              "Computed price", "Override price", "FINAL price", "Benchmark low", "Benchmark high", "Flag", "Notes",
-             "Paint material?"]
+             "Paint material?", "Materials needed?", "Sub required?", "Hours confidence"]
     for c, h in enumerate(heads, 1):
         sa.cell(row=1, column=c, value=h)
     style_header(sa, 1, len(heads))
@@ -165,16 +186,29 @@ def build(schedule_path: str, out: str, bench_csv: str | None) -> None:
             vals = [it["id"], sec["name"], it["item"], it["uom"], it.get("basis", ""), trade]
             for c, v in enumerate(vals, 1):
                 sa.cell(row=r, column=c, value=v).border = BOX
+            sa.cell(row=r, column=7, value=it.get("hours"))
+            sa.cell(row=r, column=16, value=it.get("hours_note", ""))
             sa.cell(row=r, column=17, value=pm)
+            sa.cell(row=r, column=18, value="Y" if it.get("needs_materials") else "N")
+            sa.cell(row=r, column=19, value="Y" if it.get("sub_required") else "N")
+            sa.cell(row=r, column=20, value=it.get("hours_confidence", ""))
             for c in (7, 8, 9, 11, 13, 14, 16):
                 cell = sa.cell(row=r, column=c)
                 cell.fill, cell.font, cell.border = INPUT_FILL, BLUE, BOX
             mat = f'IF(AND(DHA_PAINT="Y",Q{r}="Y"),0,N(H{r}))'
+            needmat = f'AND(R{r}="Y",NOT(AND(DHA_PAINT="Y",Q{r}="Y")))'
+            rate = f'INDEX(RV,MATCH(F{r},RK,0))'
+            labor = f'IF(S{r}="Y",0,G{r}*{rate})'
+            base = f'({labor}+{mat}*(1+N(TAX))+N(I{r}))*(1+OVH)*(1+PROFIT)'
+            blocked = (
+                f'OR(NOT(ISNUMBER(OVH)),NOT(ISNUMBER(PROFIT)),'
+                f'AND(S{r}="Y",NOT(ISNUMBER(I{r}))),'
+                f'AND(S{r}<>"Y",OR(F{r}="",NOT(ISNUMBER(G{r})),NOT(ISNUMBER({rate})))),'
+                f'AND({needmat},NOT(ISNUMBER(H{r}))),'
+                f'AND({mat}>0,NOT(ISNUMBER(TAX))))'
+            )
             computed = (
-                f'=IFERROR(IF(OR(F{r}="",NOT(ISNUMBER(G{r})),NOT(ISNUMBER(INDEX(RV,MATCH(F{r},RK,0)))),'
-                f'NOT(ISNUMBER(OVH)),NOT(ISNUMBER(PROFIT)),AND({mat}>0,NOT(ISNUMBER(TAX)))),"",'
-                f'IF(ISNUMBER(ROUNDTO),MROUND(((G{r}*INDEX(RV,MATCH(F{r},RK,0))+{mat}*(1+N(TAX))+N(I{r}))*(1+OVH)*(1+PROFIT)),ROUNDTO),'
-                f'ROUND(((G{r}*INDEX(RV,MATCH(F{r},RK,0))+{mat}*(1+N(TAX))+N(I{r}))*(1+OVH)*(1+PROFIT)),2))),"")'
+                f'=IFERROR(IF({blocked},"",IF(ISNUMBER(ROUNDTO),MROUND({base},ROUNDTO),ROUND({base},2))),"")'
             )
             sa.cell(row=r, column=10, value=computed).border = BOX
             sa.cell(row=r, column=12, value=f'=IF(ISNUMBER(K{r}),K{r},J{r})').border = BOX
@@ -185,10 +219,10 @@ def build(schedule_path: str, out: str, bench_csv: str | None) -> None:
                 sa.cell(row=r, column=c).number_format = '"$"#,##0.00'
             r += 1
     last_a = r - 1
-    for col, w in zip("ABCDEFGHIJKLMNOPQ", [11, 34, 46, 9, 7, 14, 10, 12, 10, 12, 12, 12, 11, 11, 16, 34, 9]):
+    for col, w in zip("ABCDEFGHIJKLMNOPQRST", [11, 34, 46, 9, 7, 14, 10, 12, 10, 12, 12, 12, 11, 11, 16, 40, 9, 10, 9, 10]):
         sa.column_dimensions[col].width = w
     sa.freeze_panes = "D2"
-    sa.auto_filter.ref = f"A1:Q{last_a}"
+    sa.auto_filter.ref = f"A1:T{last_a}"
 
     # Attachment B
     sb = wb.create_sheet("Attachment B")
@@ -258,8 +292,9 @@ def build(schedule_path: str, out: str, bench_csv: str | None) -> None:
         ("Site-table cells still blank", "=B9-B10"),
         ("Prices <= 0 (never valid)", f"=COUNTIF('Schedule A'!L2:L{last_a},\"<=0\")+COUNTIF('Attachment B'!F2:F{last_b},\"<=0\")"),
         ("Lines outside benchmark band", f"=COUNTIF('Schedule A'!O2:O{last_a},\"*benchmark\")"),
-        ("Inputs complete? (overhead, profit, all trade rates used)", '=IF(AND(ISNUMBER(OVH),ISNUMBER(PROFIT)),"overhead/profit set","overhead/profit MISSING")'),
-        ("READY TO SUBMIT?", '=IF(AND(B5=0,B8=0,B11=0,B12=0),"READY","NOT READY")'),
+        ("Inputs complete? (overhead, profit)", '=IF(AND(ISNUMBER(OVH),ISNUMBER(PROFIT)),"overhead/profit set","overhead/profit MISSING")'),
+        ("Owner reviewed every starting assumption?", '=IF(REVIEWED="Y","yes","NO - not reviewed")'),
+        ("READY TO SUBMIT?", '=IF(AND(B5=0,B8=0,B11=0,B12=0,REVIEWED="Y"),"READY","NOT READY")'),
     ]
     ck["A1"], ck["B1"] = "Check", "Result"
     style_header(ck, 1, 2)
@@ -281,7 +316,8 @@ def main(argv: list[str]) -> int:
         return 0
     if len(argv) >= 3 and argv[0] == "build":
         bench = argv[argv.index("--benchmarks") + 1] if "--benchmarks" in argv else None
-        build(argv[1], argv[2], bench)
+        inp = json.loads(Path(argv[argv.index("--inputs") + 1]).read_text(encoding="utf8")) if "--inputs" in argv else None
+        build(argv[1], argv[2], bench, inp)
         return 0
     print(__doc__)
     return 2

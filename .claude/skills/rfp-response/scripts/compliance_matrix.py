@@ -39,7 +39,8 @@ BOX = Border(left=THIN, right=THIN, top=THIN, bottom=THIN)
 
 def load_rows(reg_dir: Path) -> tuple[list[dict], list[str]]:
     rows, problems = [], []
-    for f in sorted(reg_dir.glob("shred-*.json")):
+    # register files are exactly shred-<n>.json; helper files (e.g. shred-2-property-table.json) are not rows
+    for f in sorted(p for p in reg_dir.glob("shred-*.json") if re.fullmatch(r"shred-\d+\.json", p.name)):
         try:
             data = json.loads(f.read_text(encoding="utf8"))
         except json.JSONDecodeError as exc:
@@ -137,8 +138,9 @@ def build(reg_dir: Path, prefix: Path, title: str) -> int:
     an.column_dimensions["B"].width = 140
     wb.save(f"{prefix}.xlsx")
 
+    n_files = sum(1 for p in reg_dir.glob("shred-*.json") if re.fullmatch(r"shred-\d+\.json", p.name))
     by_risk = collections.Counter(r.get("risk") for r in rows)
-    print(f"{prefix}.xlsx: {len(rows)} rows from {len(list(reg_dir.glob('shred-*.json')))} files; "
+    print(f"{prefix}.xlsx: {len(rows)} rows from {n_files} files; "
           f"risk high={by_risk.get('high', 0)} medium={by_risk.get('medium', 0)} low={by_risk.get('low', 0)}; "
           f"anomalies={len(anomalies(reg_dir))}")
     for p in problems:

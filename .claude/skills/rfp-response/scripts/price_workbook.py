@@ -26,7 +26,10 @@ SCHEDULE FORMAT
                 "items": [ {"item": "1 Bedroom", "uom": "each", "ref": "A-004-001"},
                            {"item": "B-only line", "uom": "each", "ref": null} ]} ],
   "site_table": {"sizes": ["Efficiency","1 Bdrm","2 Bdrm","3 Bdrm","4 Bdrm","5 Bdrm"],
-                 "properties": [ {"name": "...", "units": 121, "address": "..."} ]}
+                 "properties": [ {"name": "...", "units": 121, "address": "...",
+                                  "shaded_cells": ["Efficiency", "3 Bdrm"]} ]}
+  shaded_cells (optional, per property): sizes the agency greyed out. They are drawn grey, are NOT input
+  cells, and do not count toward READY. Without the key every cell is an input.
 }
 Item fields (all optional): hours (starting ASSUMPTION per unit), hours_confidence (H/M/L), hours_note,
 needs_materials (price stays blank until a real material $/unit is entered), sub_required (price comes from
@@ -251,20 +254,34 @@ def build(schedule_path: str, out: str, bench_csv: str | None, inputs: dict | No
     st = wb.create_sheet("Site Table")
     site = sch.get("site_table") or {"sizes": [], "properties": []}
     sizes = site["sizes"]
-    for c, h in enumerate(["#", "Property", "Units", "Address"] + sizes, 1):
+    GREY = PatternFill("solid", fgColor="D9D9D9")
+    helper_col = 5 + len(sizes)
+    for c, h in enumerate(["#", "Property", "Units", "Address"] + sizes + ["Open cells filled"], 1):
         st.cell(row=1, column=c, value=h)
-    style_header(st, 1, 4 + len(sizes))
+    style_header(st, 1, helper_col)
+    n_open_total = 0
     for i, p in enumerate(site["properties"], 2):
         for c, v in enumerate([i - 1, p.get("name") or "", p.get("units"), p.get("address") or ""], 1):
             st.cell(row=i, column=c, value=v).border = BOX
-        for c in range(5, 5 + len(sizes)):
-            cell = st.cell(row=i, column=c)
-            cell.fill, cell.font, cell.border = INPUT_FILL, BLUE, BOX
-            cell.number_format = '"$"#,##0.00'
+        shaded = set(p.get("shaded_cells") or [])
+        open_refs = []
+        for k, size in enumerate(sizes):
+            col = 5 + k
+            cell = st.cell(row=i, column=col)
+            cell.border = BOX
+            if size in shaded:
+                cell.fill = GREY
+            else:
+                cell.fill, cell.font = INPUT_FILL, BLUE
+                cell.number_format = '"$"#,##0.00'
+                open_refs.append(f"{get_column_letter(col)}{i}")
+        n_open_total += len(open_refs)
+        st.cell(row=i, column=helper_col, value=f"=COUNT({','.join(open_refs)})" if open_refs else 0).border = BOX
     last_s = 1 + len(site["properties"])
     st.column_dimensions["B"].width = 34
     st.column_dimensions["D"].width = 38
     st.freeze_panes = "C2"
+    st.cell(row=last_s + 2, column=2, value="Grey = shaded by the agency (meaning not defined: ask). Grey cells are not inputs and do not count toward READY.")
 
     # Benchmarks
     bm = wb.create_sheet("Benchmarks")
@@ -279,7 +296,7 @@ def build(schedule_path: str, out: str, bench_csv: str | None, inputs: dict | No
 
     # Checks
     ck = wb.create_sheet("Checks")
-    n_site_cells = len(site["properties"]) * len(sizes)
+    n_site_cells = n_open_total
     checks = [
         ("Schedule A lines", f"=COUNTA('Schedule A'!A2:A{last_a})"),
         ("Schedule A lines priced", f"=COUNT('Schedule A'!L2:L{last_a})"),
@@ -287,8 +304,8 @@ def build(schedule_path: str, out: str, bench_csv: str | None, inputs: dict | No
         ("Attachment B lines", f"=COUNTA('Attachment B'!B2:B{last_b})"),
         ("Attachment B lines priced", f"=COUNT('Attachment B'!F2:F{last_b})"),
         ("Attachment B lines still blank", "=B6-B7"),
-        ("Site-table price cells expected", n_site_cells),
-        ("Site-table price cells filled", f"=COUNT('Site Table'!E2:{get_column_letter(4 + max(len(sizes), 1))}{max(last_s, 2)})"),
+        ("Site-table price cells expected (open, not grey)", n_site_cells),
+        ("Site-table price cells filled", f"=SUM('Site Table'!{get_column_letter(helper_col)}2:{get_column_letter(helper_col)}{max(last_s, 2)})"),
         ("Site-table cells still blank", "=B9-B10"),
         ("Prices <= 0 (never valid)", f"=COUNTIF('Schedule A'!L2:L{last_a},\"<=0\")+COUNTIF('Attachment B'!F2:F{last_b},\"<=0\")"),
         ("Lines outside benchmark band", f"=COUNTIF('Schedule A'!O2:O{last_a},\"*benchmark\")"),

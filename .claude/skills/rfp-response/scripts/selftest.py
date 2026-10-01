@@ -179,6 +179,33 @@ def main(argv: list[str]) -> int:
         else:
             print("  skip  soffice not installed; formula recalculation checks skipped")
 
+        # shaded (agency-greyed) site-table cells: not inputs, not counted toward READY
+        data["site_table"] = {"sizes": ["Efficiency", "1 Bdrm", "2 Bdrm"], "properties": [
+            {"name": "P1", "units": 10, "address": "a", "shaded_cells": ["Efficiency", "2 Bdrm"]},
+            {"name": "P2", "units": 5, "address": "b"}]}
+        sched2 = work / "schedule_shaded.json"
+        sched2.write_text(json.dumps(data), encoding="utf8")
+        xlsx2 = work / "price_shaded.xlsx"
+        run(HERE / "price_workbook.py", "build", sched2, xlsx2)
+        wb2 = openpyxl.load_workbook(xlsx2)
+        check("shaded cells are grey and not inputs; open cells are inputs",
+              wb2["Site Table"]["E2"].fill.fgColor.rgb.endswith("D9D9D9") and wb2["Site Table"]["F2"].fill.fgColor.rgb.endswith("FFF8DC"))
+        if soffice:
+            wb2["Site Table"]["F2"] = 100   # P1, open
+            wb2["Site Table"]["E2"] = 999   # P1, shaded: must NOT count
+            wb2["Site Table"]["E3"] = 50    # P2, open
+            f2 = work / "price_shaded_f.xlsx"
+            wb2.save(f2)
+            out2 = work / "calc2"
+            subprocess.run([soffice, f"-env:UserInstallation=file://{work}/lo", "--headless", "--convert-to",
+                            "xlsx:Calc MS Excel 2007 XML", "--outdir", str(out2), str(f2)], capture_output=True)
+            if (out2 / "price_shaded_f.xlsx").exists():
+                ck2 = openpyxl.load_workbook(out2 / "price_shaded_f.xlsx", data_only=True)["Checks"]
+                rows = {ck2.cell(r, 1).value: ck2.cell(r, 2).value for r in range(3, 25) if ck2.cell(r, 1).value}
+                exp = next(v for k, v in rows.items() if k.startswith("Site-table price cells expected"))
+                fil = next(v for k, v in rows.items() if k.startswith("Site-table price cells filled"))
+                check("site table expects only the 4 open cells and ignores a value typed into a grey one", (exp, fil) == (4, 2), f"{exp},{fil}")
+
         # -------------------------------------------------- compliance matrix
         print("compliance_matrix.py")
         reg = work / "reg"

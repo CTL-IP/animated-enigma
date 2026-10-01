@@ -18,7 +18,7 @@ Manifest (YAML):
       audience: external               # external (bundled) | external-separate (built, not bundled,
                                        # e.g. questions sent on their own) | internal
       append_pdf_pages:                # optional: agency-supplied pages, appended after this document
-        - {pdf: in/Solicitation.pdf, pages: [57, 63, 64], title: "Agency pages to complete and sign"}
+        - {pdf: in/Solicitation.pdf, pages: [57, 63, 64], title: "Agency-supplied pages", note: "optional line under the title"}
 Paths are relative to the manifest's folder.
 
 Usage: build_package.py package.yaml [--no-pdf]
@@ -60,7 +60,10 @@ def append_pages(pdf_path: Path, spec: dict, base: Path) -> int:
     if spec.get("title"):
         page = doc.new_page()
         page.insert_text((72, 120), spec["title"], fontsize=16)
-        page.insert_text((72, 150), "Print the following page(s) exactly as supplied by the agency, complete and sign.", fontsize=10)
+        # Optional on purpose: the divider is part of the upload, so it must carry only text the firm
+        # would be content for the agency to read. An instruction to the signer belongs in the guide.
+        if spec.get("note"):
+            page.insert_text((72, 150), spec["note"], fontsize=10)
     for n in spec["pages"]:
         doc.insert_pdf(src, from_page=n - 1, to_page=n - 1)
     out = pdf_path.with_suffix(".tmp.pdf")

@@ -51,9 +51,26 @@ def text_of(path: Path) -> str:
     return ""
 
 
+QUOTED = re.compile(r'["\u201c][^"\u201c\u201d\n]{0,300}["\u201d]')
+
+
+def quoted_spans(text: str) -> list[tuple[int, int]]:
+    return [(m.start(), m.end()) for m in QUOTED.finditer(text)]
+
+
 def scan(path: Path) -> dict:
     text = text_of(path)
-    found = {k: [m.group(0).strip() for m in rx.finditer(text)] for k, rx in PATTERNS.items()}
+    spans = quoted_spans(text)
+    found = {}
+    for k, rx in PATTERNS.items():
+        hits = []
+        for m in rx.finditer(text):
+            # A template left-over inside quotation marks is the solicitation's own blank being
+            # quoted back ("an amount not to exceed INSERT AMOUNT OF CONTRACT LIMIT"), not ours.
+            if k == "leftover" and any(a <= m.start() < b for a, b in spans):
+                continue
+            hits.append(m.group(0).strip())
+        found[k] = hits
     return {"file": str(path), **{k: v for k, v in found.items()}, "total": sum(len(v) for v in found.values())}
 
 

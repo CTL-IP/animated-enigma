@@ -249,6 +249,12 @@ def main(argv: list[str]) -> int:
         scan = json.loads((work / "scan.json").read_text(encoding="utf8"))[0]
         check("scanner finds exactly the 2 [[FILL]] flags in the docx", len(scan["fill"]) == 2 and len(scan["token"]) == 0, str(scan))
         check("scanner exits 1 while anything is unfinished", cp.returncode == 1)
+        quoted = work / "quoted.md"
+        quoted.write_text('The RFP says "not to exceed INSERT AMOUNT OF CONTRACT LIMIT per year"; ours is TBD.\n', encoding="utf8")
+        cp = run(HERE / "scan_placeholders.py", quoted, "--json", work / "q.json", expect_rc=None)
+        q = json.loads((work / "q.json").read_text(encoding="utf8"))[0]
+        check("a template left-over quoted from the solicitation is not ours; an unquoted one still is",
+              q["leftover"] == ["TBD"], str(q["leftover"]))
         clean = work / "clean.md"
         clean.write_text("All done.\n", encoding="utf8")
         cp = run(HERE / "scan_placeholders.py", clean, expect_rc=None)

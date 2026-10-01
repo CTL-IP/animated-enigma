@@ -29,10 +29,10 @@ These come from Patrick and are not negotiable.
 
 ### Git
 
-- Branch: **`claude/loving-pasteur-hyl6er`**. Never push elsewhere without
+- Branch: **`claude/trusting-tesla-8u5367`**. Never push elsewhere without
   explicit permission. The hooks read it from `.claude/hooks/designated-branch`;
   when Patrick names a new branch, that file and this line change together.
-- `git push -u origin claude/loving-pasteur-hyl6er`, retrying up to four
+- `git push -u origin claude/trusting-tesla-8u5367`, retrying up to four
   times on network failure with 2s/4s/8s/16s backoff.
 - Commit trailer, every time:
   ```
@@ -41,7 +41,7 @@ These come from Patrick and are not negotiable.
   ```
 - **Never put a model identifier in any repo artifact** — not commit messages
   beyond that trailer, not PR titles or bodies, not code comments.
-- Tracking PR is **#15** (#11 merged). Keep its description accurate; a body that says
+- Tracking PR is **#16** (#15 merged). Keep its description accurate; a body that says
   "Tasks 9–19" when the branch carries 29 is worse than no body.
 
 ---
@@ -93,7 +93,9 @@ vendor swap is configuration, not a rewrite.
 
 ## Skills
 
-Four skills in `.claude/skills/` cover the recurring procedures. Use them.
+Four skills in `.claude/skills/` cover the recurring procedures. Use them. The bid-writing skills
+(`rfp-response`, `gov-contract-review`, `hud-pha-procurement`) live in their own repository, `bid-skills`,
+not here: they are not about this application.
 
 | Skill | When |
 |---|---|

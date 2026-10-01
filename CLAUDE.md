@@ -41,7 +41,7 @@ These come from Patrick and are not negotiable.
   ```
 - **Never put a model identifier in any repo artifact** — not commit messages
   beyond that trailer, not PR titles or bodies, not code comments.
-- Tracking PR is **#11** (#6 merged). Keep its description accurate; a body that says
+- Tracking PR is **#16** (#15 merged). Keep its description accurate; a body that says
   "Tasks 9–19" when the branch carries 29 is worse than no body.
 
 ---
@@ -320,14 +320,14 @@ Not "Warning: incomplete data." Not "Invalid range."
 6. **Texas tax tooling.** Approve the `texas-tax` MCP server the first time Claude
    Code asks (a committed file can't approve it). Decide whether, and where, to
    host its HTTP connector — nothing is deployed. Set the property type and the
-   state on every property: the estimate and invoice tax checks run only when
-   they know both.
+   state on every new property — the existing ones were set on 2026-09-30. The
+   estimate and invoice tax checks run only when they know both.
 
 ---
 
 ## Current state
 
-- **935 unit tests** across 49 files
+- **952 unit tests** across 50 files
 - **216 real-Postgres RLS assertions**
 - **Texas tax ledger:** 44 facts — 38 confirmed, 5 partly confirmed, 1 not
   settled — checked 2026-09-26 (two on 2026-09-27) through search excerpts of

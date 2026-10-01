@@ -75,6 +75,21 @@ is a public-shaped file in a repository. Reference a variable by name only.
 
 ## Log
 
+## 2026-10-01 — The bid-writing skills moved out to their own repository
+**By:** Claude · **Commit:** on `claude/trusting-tesla-8u5367` (PR #16)
+
+Patrick asked why a bid-writing toolkit was being built inside the Foreman repository, and chose a separate
+repository for it. The three skills (`rfp-response`, `gov-contract-review`, `hud-pha-procurement`), their
+scripts, the `bid-verifier` subagent, the Codex/Cursor adapters (`.agents/skills`, `AGENTS.md`, `.codex/agents`,
+`.cursor/rules/bid-skills.mdc`) and `scripts/validate-skills.py` are removed from this branch. They now live in
+`bid-skills` (same owner), which adds an `install.sh` that links them into each tool's user-level skills folder.
+What this branch still carries: the push-guard repoint (open thread 10) and the agent-log entries. The entry
+below records what the skills were and how they were tested; it stays as written.
+
+**Not done.** The `bid-skills` repository could not be created from this session (the GitHub App cannot create
+repositories: 403), so the owner creates it and the content is pushed afterwards; until then it exists only as a
+local commit and a zip handed to the owner.
+
 ## 2026-10-01 — Skills for answering government solicitations, portable to Codex and Cursor
 **By:** Claude · **Commit:** see PR #16 (`claude/trusting-tesla-8u5367`)
 

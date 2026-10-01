@@ -93,9 +93,9 @@ vendor swap is configuration, not a rewrite.
 
 ## Skills
 
-Seven skills in `.claude/skills/` cover the recurring procedures. Use them. The last three are not about
-this application: they are for answering government solicitations, are portable to Codex and Cursor (see
-`AGENTS.md`), and hold procedures and generic research only — never a particular firm's data.
+Four skills in `.claude/skills/` cover the recurring procedures. Use them. The bid-writing skills
+(`rfp-response`, `gov-contract-review`, `hud-pha-procurement`) live in their own repository, `bid-skills`,
+not here: they are not about this application.
 
 | Skill | When |
 |---|---|
@@ -103,9 +103,6 @@ this application: they are for answering government solicitations, are portable 
 | `db-change` | Any edit to `schema.ts`, any migration, constraint, trigger, policy |
 | `ship-check` | Before every commit, and before saying anything is done |
 | `texas-tax` | Any Texas tax question — a job's treatment, a Comptroller publication, a due date, a penalty, franchise tax, vehicle rental tax — and any work in `src/lib/texas-tax` or `src/mcp/texas-tax` |
-| `rfp-response` | Answering a government or housing-authority solicitation: extract and reconcile, requirement register, questions to the agency, writing to the criteria, unit-price workbook, forms, the placeholder gate |
-| `gov-contract-review` | Reviewing a solicitation's contract terms, insurance and flow-downs; negotiation language |
-| `hud-pha-procurement` | HUD-funded or housing-authority forms and certifications, and what each commits the firm to |
 
 ## Hooks
 

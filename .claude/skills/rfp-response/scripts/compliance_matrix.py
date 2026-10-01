@@ -14,6 +14,9 @@ Usage:
   compliance_matrix.py REGISTER_DIR OUT_PREFIX [--title "RFP-XXXX"]
     reads REGISTER_DIR/shred-*.json and REGISTER_DIR/shred-*-anomalies.md
     writes OUT_PREFIX.xlsx and OUT_PREFIX.json
+  compliance_matrix.py --rebuild MATRIX.json OUT_PREFIX [--anomalies-from REGISTER_DIR]
+    regenerates the workbook from a matrix JSON that already carries statuses and notes
+    (re-running the first form from the shred files would reset every status to open)
   compliance_matrix.py --verify MATRIX.json   # counts rows still 'open' (exit 1 if any)
 Requires: openpyxl.
 """
@@ -80,6 +83,21 @@ def anomalies(reg_dir: Path) -> list[tuple[str, str]]:
 
 def build(reg_dir: Path, prefix: Path, title: str) -> int:
     rows, problems = load_rows(reg_dir)
+    return write_outputs(rows, problems, reg_dir, prefix, title)
+
+
+def rebuild(matrix_json: Path, prefix: Path, title: str, reg_dir: Path | None) -> int:
+    """Regenerate the workbook from a matrix JSON that already carries statuses.
+
+    Re-running `build` from the shred files would reset every status to open, so once a
+    verifier has entered statuses and notes the JSON is the source of truth. The anomalies
+    sheet still comes from the shred folder when one is given.
+    """
+    rows = json.loads(matrix_json.read_text(encoding="utf8"))
+    return write_outputs(rows, [], reg_dir, prefix, title)
+
+
+def write_outputs(rows: list[dict], problems: list[str], reg_dir: Path | None, prefix: Path, title: str) -> int:
     problems += check(rows)
     for r in rows:
         r.setdefault("status", "open")
@@ -90,7 +108,7 @@ def build(reg_dir: Path, prefix: Path, title: str) -> int:
     wb = Workbook()
     ws = wb.active
     ws.title = "Matrix"
-    heads = FIELDS + ["status", "answered_in"]
+    heads = FIELDS + ["status", "answered_in", "status_note"]
     for c, h in enumerate(heads, 1):
         cell = ws.cell(row=1, column=c, value=h.replace("_", " ").title())
         cell.font, cell.fill, cell.border = Font(bold=True), PatternFill("solid", fgColor="E9EDF2"), BOX
@@ -102,7 +120,7 @@ def build(reg_dir: Path, prefix: Path, title: str) -> int:
         risk = r.get("risk")
         if risk in RISK_FILL:
             ws.cell(row=i, column=FIELDS.index("risk") + 1).fill = PatternFill("solid", fgColor=RISK_FILL[risk])
-    widths = [10, 9, 24, 14, 60, 46, 26, 16, 8, 50, 10, 30]
+    widths = [10, 9, 24, 14, 60, 46, 26, 16, 8, 50, 10, 30, 50]
     for c, w in enumerate(widths, 1):
         ws.column_dimensions[ws.cell(row=1, column=c).column_letter].width = w
     ws.freeze_panes = "C2"
@@ -130,7 +148,8 @@ def build(reg_dir: Path, prefix: Path, title: str) -> int:
     an = wb.create_sheet("Anomalies")
     an["A1"], an["B1"] = "Segment", "Contradiction / gap / stale reference"
     an["A1"].font = an["B1"].font = Font(bold=True)
-    for i, (seg, text) in enumerate(anomalies(reg_dir), 2):
+    anomaly_rows = anomalies(reg_dir) if reg_dir else []
+    for i, (seg, text) in enumerate(anomaly_rows, 2):
         an.cell(row=i, column=1, value=seg)
         c = an.cell(row=i, column=2, value=text)
         c.alignment = Alignment(wrap_text=True, vertical="top")
@@ -138,11 +157,12 @@ def build(reg_dir: Path, prefix: Path, title: str) -> int:
     an.column_dimensions["B"].width = 140
     wb.save(f"{prefix}.xlsx")
 
-    n_files = sum(1 for p in reg_dir.glob("shred-*.json") if re.fullmatch(r"shred-\d+\.json", p.name))
+    n_files = len({r.get("_file") for r in rows})
     by_risk = collections.Counter(r.get("risk") for r in rows)
+    by_status = collections.Counter(r.get("status") for r in rows)
     print(f"{prefix}.xlsx: {len(rows)} rows from {n_files} files; "
           f"risk high={by_risk.get('high', 0)} medium={by_risk.get('medium', 0)} low={by_risk.get('low', 0)}; "
-          f"anomalies={len(anomalies(reg_dir))}")
+          f"status {dict(sorted(by_status.items()))}; anomalies={len(anomaly_rows)}")
     for p in problems:
         print("PROBLEM:", p)
     return 1 if problems else 0
@@ -163,9 +183,15 @@ def main(argv: list[str]) -> int:
     ap.add_argument("b", nargs="?")
     ap.add_argument("--title", default="Solicitation")
     ap.add_argument("--verify", action="store_true")
+    ap.add_argument("--rebuild", action="store_true")
+    ap.add_argument("--anomalies-from", default=None)
     args = ap.parse_args(argv)
     if args.verify:
         return verify(Path(args.a))
+    if args.rebuild:
+        if not args.b:
+            ap.error("--rebuild needs MATRIX.json and OUT_PREFIX")
+        return rebuild(Path(args.a), Path(args.b), args.title, Path(args.anomalies_from) if args.anomalies_from else None)
     if not args.b:
         ap.error("need REGISTER_DIR and OUT_PREFIX")
     return build(Path(args.a), Path(args.b), args.title)

@@ -225,6 +225,15 @@ def main(argv: list[str]) -> int:
               cp.stdout)
         cp = run(HERE / "compliance_matrix.py", "--verify", work / "mx.json", expect_rc=None)
         check("--verify exits 1 while rows are open", cp.returncode == 1)
+        rows_now = json.loads((work / "mx.json").read_text(encoding="utf8"))
+        rows_now[0]["status"], rows_now[0]["answered_in"], rows_now[0]["status_note"] = "answered", "Tab 3, section 1", "ok"
+        (work / "mx.json").write_text(json.dumps(rows_now), encoding="utf8")
+        cp = run(HERE / "compliance_matrix.py", "--rebuild", work / "mx.json", work / "mx", "--title", "T")
+        kept = json.loads((work / "mx.json").read_text(encoding="utf8"))[0]
+        check("--rebuild keeps entered statuses and notes (a rebuild from shreds would reset them to open)",
+              cp.returncode == 0 and kept["status"] == "answered" and kept["status_note"] == "ok" and "'answered': 1" in cp.stdout, cp.stdout)
+        cp = run(HERE / "compliance_matrix.py", "--verify", work / "mx.json", expect_rc=None)
+        check("--verify exits 0 once every row has a status", cp.returncode == 0, cp.stdout)
 
         # --------------------------------------------- md -> docx + placeholders
         print("md_to_docx.py + scan_placeholders.py")

@@ -41,7 +41,7 @@ These come from Patrick and are not negotiable.
   ```
 - **Never put a model identifier in any repo artifact** — not commit messages
   beyond that trailer, not PR titles or bodies, not code comments.
-- Tracking PR is **#15** (#11 merged). Keep its description accurate; a body that says
+- Tracking PR is **#18** (#15 merged). Keep its description accurate; a body that says
   "Tasks 9–19" when the branch carries 29 is worse than no body.
 
 ---

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useLayoutEffect, useRef, useState } from 'react';
 import { useFormState } from 'react-dom';
 import { Plus, Trash2 } from 'lucide-react';
 import { saveInvoice } from '@/lib/invoices/actions';
@@ -99,11 +99,9 @@ export function InvoiceForm({
             />
             <div className="mt-2 flex items-center justify-between gap-3">
               <label className="flex cursor-pointer items-center gap-1.5 text-xs text-muted-foreground">
-                <input
-                  type="checkbox"
+                <TaxableBox
                   checked={row.taxable !== false}
-                  className="h-3.5 w-3.5 accent-primary"
-                  onChange={(e) => update(row.key, { taxable: e.target.checked })}
+                  onChange={(taxable) => update(row.key, { taxable })}
                 />
                 Taxable
               </label>
@@ -214,6 +212,37 @@ export function InvoiceForm({
         Save invoice
       </SubmitButton>
     </form>
+  );
+}
+
+/**
+ * A line's Taxable box, kept in step with its line through a save.
+ *
+ * After a save, React resets the form's fields natively, and a checkbox falls
+ * back to its default, which React sets once, at mount. So a box changed since
+ * the page loaded flipped back on screen while the hidden input kept sending
+ * the change, and the next save stored what the screen didn't show. Keeping
+ * the default equal to the value makes the reset land where the box already is.
+ */
+function TaxableBox({
+  checked,
+  onChange,
+}: {
+  checked: boolean;
+  onChange: (checked: boolean) => void;
+}) {
+  const box = useRef<HTMLInputElement>(null);
+  useLayoutEffect(() => {
+    if (box.current) box.current.defaultChecked = checked;
+  }, [checked]);
+  return (
+    <input
+      ref={box}
+      type="checkbox"
+      checked={checked}
+      className="h-3.5 w-3.5 accent-primary"
+      onChange={(e) => onChange(e.target.checked)}
+    />
   );
 }
 

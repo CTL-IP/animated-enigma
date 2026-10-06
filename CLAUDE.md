@@ -41,6 +41,9 @@ These come from Patrick and are not negotiable.
   ```
 - **Never put a model identifier in any repo artifact** — not commit messages
   beyond that trailer, not PR titles or bodies, not code comments.
+- The repository moved to the **`CTL-IP`** organization on 2026-10-06 and is now
+  `CTL-IP/animated-enigma`; the old `plthompsonjr-IAM` URL redirects. Start new sessions
+  from the new name. The branch rule above is unchanged.
 - Tracking PR is **#16** (#15 merged). Keep its description accurate; a body that says
   "Tasks 9–19" when the branch carries 29 is worse than no body.
 
@@ -94,8 +97,9 @@ vendor swap is configuration, not a rewrite.
 ## Skills
 
 Four skills in `.claude/skills/` cover the recurring procedures. Use them. The bid-writing skills
-(`rfp-response`, `gov-contract-review`, `hud-pha-procurement`) live in their own repository, `bid-skills`,
-not here: they are not about this application.
+(`rfp-response`, `gov-contract-review`, `hud-pha-procurement`) live in their own repository,
+[`CTL-IP/bid-skills`](https://github.com/CTL-IP/bid-skills), not here: they are not about this
+application. Its `install.sh` links them into Claude Code, Codex and Cursor at user level.
 
 | Skill | When |
 |---|---|

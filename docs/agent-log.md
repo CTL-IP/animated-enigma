@@ -74,6 +74,52 @@ is a public-shaped file in a repository. Reference a variable by name only.
 
 ## Log
 
+## 2026-10-02 — Invoice Taxable box: checked on the real editor, fixed
+**By:** Claude · **Commit:** b4ac256
+
+This settles **"Found, not fixed: the invoice form may show a box that isn't
+what it sends"** from the entry below. Asked to check whether the invoice box
+has the estimate bug. PR #15 merged meanwhile; this work starts the branch again
+from `main`.
+
+**The estimate bug: not present.**
+- The invoice form always sends an explicit value, so unticking saves `false`.
+- Changing a line's price keeps its box.
+
+**A sibling bug: present, and fixed.**
+- After a save, a box changed since the page loaded flipped back on screen to
+  its page-load value. The form kept sending the change, so the next save
+  stored what the screen didn't show. Only a reload put the box right.
+- Cause: after a form action, React 19 resets the form's fields natively, and
+  a controlled checkbox falls back to the default React set at mount. Text
+  inputs keep their defaults in step and weren't affected. No other checkbox in
+  the app is controlled inside an action form.
+- Fix: each line's box keeps its default equal to its value, so the reset
+  lands where the box already is.
+
+**How it was checked.**
+- The real editor, run locally: a production build, a local Postgres with the
+  migrations and a seeded draft invoice, a stand-in for Supabase sign-in,
+  driven in Chromium.
+- Unfixed: the one save that finished on screen showed its box flipped back.
+- Fixed: all 5 saves that finished showed the saved value.
+- 5 unit tests apply the same native reset. On the old code 3 of them fail.
+
+**Found, not fixed: the Save button can stay on "Saving…".**
+- In that local run, most saves stayed on "Saving…" at 15 seconds, though
+  every save was stored: unfixed 7 of 8, fixed 11 of 16.
+- It happens with and without the fix. Blocking link prefetches didn't change
+  it.
+- The cause wasn't found. It may come from the local setup (the sign-in
+  stand-in, no Vercel); whether the deployed app does it is not known.
+
+**Verified.**
+- Typecheck, lint, 957 unit tests (51 files), `next build`.
+- RLS suite: 216 assertions. `test-setup-sql`: 50 tables, all RLS.
+
+**Not verified.** The deployed app; nothing here was clicked through on a
+deployment.
+
 ## 2026-09-30 — Estimate lines can be made untaxed; closes the note below
 **By:** Claude · **Commit:** 11ae90a
 

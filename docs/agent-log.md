@@ -75,6 +75,25 @@ is a public-shaped file in a repository. Reference a variable by name only.
 
 ## Log
 
+## 2026-10-06 — PR #16 and `bid-skills#1` merged; the branch restarted from `main`
+**By:** Claude · **Commit:** on `claude/trusting-tesla-8u5367`, first commit after the restart
+
+Patrick merged both pull requests on 2026-10-06, each with a merge commit. `CTL-IP/bid-skills` `main` now carries
+the three skills, the bid-verifier agent and `install.sh` (merge commit 873bcb9 there). Here, PR #16 merged as
+7bf73c3, and the branch was reset to that commit and pushed as a fast-forward, per the rule that a merged pull
+request cannot track new work. The next pull request opened from this branch is the tracking PR. `CLAUDE.md`
+now describes the tracking PR by position (the open PR from this branch into `main`) rather than by number, so
+that line stops going stale at every merge.
+
+Also today, outside this repository and recorded here only so the next reader knows where the bid work stands:
+the `bid-skills` installer was run twice in this session's container (nine links each time, self-test 38 of 38)
+and the three skills appeared in the session's skill list. Nothing about the owner's bid, insurance or
+correspondence is recorded in this repository, by design.
+
+Not done: the `CLAUDE.md` commit trailer still names a model, which the line two bullets below it forbids; every
+commit since 2026-10-01 has used `Co-Authored-By: Claude <noreply@anthropic.com>` instead. Left for Patrick to
+settle, since the trailer is his rule.
+
 ## 2026-10-06 — `bid-skills` is on GitHub; this repository now answers as `CTL-IP/animated-enigma`
 **By:** Claude · **Commit:** on `claude/trusting-tesla-8u5367` (PR #16)
 

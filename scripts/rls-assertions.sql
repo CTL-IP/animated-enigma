@@ -2650,5 +2650,63 @@ begin
   raise notice 'PASS: hourlyCostRate resolves the correlated member''s rate without erroring';
 end $$;
 
+-- ═══════════════════════ Platform billing (Task 50) ══════════════════════════
+-- One subscription row per org. Ordinary tenant isolation, plus the unique
+-- index that keeps "what are they on right now" a single lookup.
+reset role;
+set role app_user;
+select set_config('request.jwt.claims',
+  '{"sub":"00000aaa-0000-4000-8000-000000000001","org":"0000000a-0000-4000-8000-000000000001"}',
+  false);
+
+do $$
+declare n int;
+begin
+  insert into organization_subscriptions (organization_id, tier, cadence, created_by)
+    values ('0000000a-0000-4000-8000-000000000001', 'growing', 'annual',
+            '00000aaa-0000-4000-8000-000000000001');
+  raise notice 'PASS: same-org subscription insert allowed';
+
+  select count(*) into n from organization_subscriptions;
+  if n <> 1 then raise exception 'FAIL: expected 1 visible subscription, saw %', n; end if;
+  raise notice 'PASS: cross-org SELECT isolation (organization_subscriptions)';
+
+  begin
+    insert into organization_subscriptions (organization_id, tier, cadence)
+      values ('0000000b-0000-4000-8000-000000000002', 'starter', 'monthly_forever');
+    raise exception 'FAIL: cross-org subscription insert was ALLOWED';
+  exception when insufficient_privilege then
+    raise notice 'PASS: cross-org subscription insert blocked';
+  end;
+
+  begin
+    insert into organization_subscriptions (organization_id, tier, cadence)
+      values ('0000000a-0000-4000-8000-000000000001', 'starter', 'annual');
+    raise exception 'FAIL: a second subscription row for the same org was ALLOWED';
+  exception when unique_violation then
+    raise notice 'PASS: one subscription per org (unique organization_id)';
+  end;
+
+  update organization_subscriptions set tier = 'enterprise', cadence = 'monthly_forever'
+    where organization_id = '0000000a-0000-4000-8000-000000000001';
+  raise notice 'PASS: same-org subscription update allowed';
+end $$;
+
+reset role;
+set role app_user;
+select set_config('request.jwt.claims',
+  '{"sub":"00000bbb-0000-4000-8000-000000000002","org":"0000000b-0000-4000-8000-000000000002"}',
+  false);
+
+do $$
+declare n int;
+begin
+  select count(*) into n from organization_subscriptions;
+  if n <> 0 then
+    raise exception 'FAIL: Org B should see none of Org A''s subscription, saw %', n;
+  end if;
+  raise notice 'PASS: organization_subscriptions is invisible across organisations';
+end $$;
+
 reset role;
 select 'ALL RLS ASSERTIONS PASSED' as result;

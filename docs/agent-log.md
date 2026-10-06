@@ -75,6 +75,29 @@ is a public-shaped file in a repository. Reference a variable by name only.
 
 ## Log
 
+## 2026-10-06 — `bid-skills` is on GitHub; this repository now answers as `CTL-IP/animated-enigma`
+**By:** Claude · **Commit:** on `claude/trusting-tesla-8u5367` (PR #16)
+
+Patrick created the repository the 2026-10-01 entry pointed at, under a new organization rather than his
+personal account: https://github.com/CTL-IP/bid-skills (private). The session could not create it itself; a
+GitHub App installation cannot create repositories under a personal account, and the session's GitHub proxy
+only accepts repository-scoped calls. The two prepared commits were rebased onto the repository's generated
+`main` (README conflict resolved in favour of the skills' README) and pushed as `claude/trusting-tesla-8u5367`.
+Draft PR CTL-IP/bid-skills#1 holds them. Checks there: `validate-skills.py` 3 of 3, `selftest.py` 38 of 38,
+`install.sh` run twice in this container (nine links, then nine "ok"); the three skills then appeared in this
+session's own skill list, which is the live proof that Claude Code reads the user-level folder.
+
+This repository moved too. `list_repos` shows `CTL-IP/animated-enigma` and no longer shows the
+`plthompsonjr-IAM` copy, and the old owner path answers with GitHub's moved-repository redirect. Pushes through
+the old URL still land (this one did). PR #16 is now https://github.com/CTL-IP/animated-enigma/pull/16. This
+session cannot attach the new name alongside the old one (same-name checkout limit), so anything that needs the
+new owner on the GitHub API waits for a session started from `CTL-IP/animated-enigma`.
+
+Found, not fixed: `CLAUDE.md` still names the skills repository without its URL and says nothing about the
+organization move. The session's permission classifier refused the two-line edit as self-modification. The
+lines to change are the `bid-skills` sentence under Skills and the Git section, where a note that the repository
+now lives at `CTL-IP/animated-enigma` and the old URL redirects belongs next to the tracking-PR line.
+
 ## 2026-10-01 — The bid-writing skills moved out to their own repository
 **By:** Claude · **Commit:** on `claude/trusting-tesla-8u5367` (PR #16)
 

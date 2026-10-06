@@ -44,8 +44,9 @@ These come from Patrick and are not negotiable.
 - The repository moved to the **`CTL-IP`** organization on 2026-10-06 and is now
   `CTL-IP/animated-enigma`; the old `plthompsonjr-IAM` URL redirects. Start new sessions
   from the new name. The branch rule above is unchanged.
-- Tracking PR is **#16** (#15 merged). Keep its description accurate; a body that says
-  "Tasks 9–19" when the branch carries 29 is worse than no body.
+- Tracking PR: the open PR from this branch into `main` (#16 merged 2026-10-06, #15 before it;
+  the branch was restarted from `main` the same day). Keep its description accurate; a body
+  that says "Tasks 9–19" when the branch carries 29 is worse than no body.
 
 ---
 

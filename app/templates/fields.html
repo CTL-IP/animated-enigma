@@ -1,0 +1,46 @@
+<label class="block">
+  <span class="text-sm font-medium">Business name</span>
+  <input name="business_name" required value="{{ ad.business_name if ad is defined else '' }}" class="mt-1 w-full rounded border border-stone-300 px-3 py-2">
+</label>
+<label class="block">
+  <span class="text-sm font-medium">Contractor type</span>
+  <select name="contractor_type" required class="mt-1 w-full rounded border border-stone-300 px-3 py-2">
+    {% for name in contractor_types %}
+      <option value="{{ name }}" {% if ad is defined and ad.contractor_type == name %}selected{% endif %}>{{ name }}</option>
+    {% endfor %}
+  </select>
+</label>
+<label class="block">
+  <span class="text-sm font-medium">Services</span>
+  <textarea name="services" required rows="3" class="mt-1 w-full rounded border border-stone-300 px-3 py-2">{{ ad.services if ad is defined else '' }}</textarea>
+</label>
+<label class="block">
+  <span class="text-sm font-medium">Location</span>
+  <input name="location" required value="{{ ad.location if ad is defined else '' }}" class="mt-1 w-full rounded border border-stone-300 px-3 py-2">
+</label>
+<div class="grid gap-4 sm:grid-cols-2">
+  <label class="block">
+    <span class="text-sm font-medium">Phone</span>
+    <input name="phone" value="{{ ad.phone or '' if ad is defined else '' }}" class="mt-1 w-full rounded border border-stone-300 px-3 py-2">
+  </label>
+  <label class="block">
+    <span class="text-sm font-medium">Website</span>
+    <input name="website" value="{{ ad.website or '' if ad is defined else '' }}" class="mt-1 w-full rounded border border-stone-300 px-3 py-2">
+  </label>
+</div>
+<label class="block">
+  <span class="text-sm font-medium">Tagline</span>
+  <input name="tagline" value="{{ ad.tagline or '' if ad is defined else '' }}" class="mt-1 w-full rounded border border-stone-300 px-3 py-2">
+</label>
+<label class="block">
+  <span class="text-sm font-medium">Platform</span>
+  <select name="platform" class="mt-1 w-full rounded border border-stone-300 px-3 py-2">
+    {% for name in platforms %}
+      <option value="{{ name }}" {% if ad is defined and ad.platform == name|lower %}selected{% endif %}>{{ name }}</option>
+    {% endfor %}
+  </select>
+</label>
+<label class="block">
+  <span class="text-sm font-medium">Photo of the work</span>
+  <input name="image" type="file" accept="image/jpeg,image/png,image/webp,image/gif" class="mt-1 block w-full text-sm">
+</label>

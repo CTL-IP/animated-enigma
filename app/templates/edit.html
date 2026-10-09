@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}Edit — ContractorAds{% endblock %}
+{% block content %}
+<h1 class="text-3xl font-semibold tracking-tight">Edit ad</h1>
+<p class="mt-1 mb-6 text-stone-600">{{ ad.business_name }}</p>
+<form method="post" action="/ads/{{ ad.id }}/edit" enctype="multipart/form-data" class="max-w-2xl space-y-4 rounded-xl border border-stone-200 bg-white p-6 shadow-sm">
+  {% include "fields.html" %}
+  <label class="block">
+    <span class="text-sm font-medium">Headline</span>
+    <input name="ad_headline" value="{{ ad.ad_headline or '' }}" class="mt-1 w-full rounded border border-stone-300 px-3 py-2">
+  </label>
+  <label class="block">
+    <span class="text-sm font-medium">Body</span>
+    <textarea name="ad_body" rows="5" class="mt-1 w-full rounded border border-stone-300 px-3 py-2">{{ ad.ad_body or '' }}</textarea>
+  </label>
+  <label class="block">
+    <span class="text-sm font-medium">Call to action</span>
+    <input name="ad_cta" value="{{ ad.ad_cta or '' }}" class="mt-1 w-full rounded border border-stone-300 px-3 py-2">
+  </label>
+  <label class="block">
+    <span class="text-sm font-medium">Status</span>
+    <select name="status" class="mt-1 w-full rounded border border-stone-300 px-3 py-2">
+      {% for name in statuses %}
+        <option value="{{ name }}" {% if ad.status == name %}selected{% endif %}>{{ name }}</option>
+      {% endfor %}
+    </select>
+  </label>
+  <div class="flex gap-3">
+    <button type="submit" class="rounded bg-brand px-4 py-2 font-semibold text-white hover:bg-brand-dark">Save</button>
+    <a href="/ads/{{ ad.id }}" class="rounded border border-stone-300 px-4 py-2 font-semibold">Cancel</a>
+  </div>
+</form>
+{% endblock %}

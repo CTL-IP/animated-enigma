@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}ContractorAds{% endblock %}</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: "#f97316",
+            "brand-dark": "#ea580c"
+          }
+        }
+      }
+    };
+  </script>
+</head>
+<body class="min-h-screen bg-stone-50 text-stone-900">
+  <nav class="bg-stone-900 text-white">
+    <div class="mx-auto flex h-16 max-w-6xl items-center justify-between px-4">
+      <a href="/" class="flex items-center gap-2 font-semibold tracking-tight">
+        <span class="inline-flex h-8 w-8 items-center justify-center rounded bg-brand text-sm font-bold">AD</span>
+        ContractorAds
+      </a>
+      <a href="/ads/new" class="rounded bg-brand px-3 py-1.5 text-sm font-semibold hover:bg-brand-dark">+ New Ad</a>
+    </div>
+  </nav>
+  <main class="mx-auto max-w-6xl px-4 py-8">
+    {% block content %}{% endblock %}
+  </main>
+</body>
+</html>

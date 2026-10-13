@@ -1,6 +1,6 @@
 'use client';
 
-import { useFormState } from 'react-dom';
+import { useActionState } from 'react';
 import { createOrganization } from '@/lib/auth/org-actions';
 import { US_TIMEZONES } from '@/lib/auth/org-utils';
 import type { FormState } from '@/lib/auth/actions';
@@ -12,7 +12,7 @@ import { SubmitButton, FormNotice } from '@/components/forms/form-bits';
 const initialState: FormState = {};
 
 export function OnboardingForm() {
-  const [state, formAction] = useFormState(createOrganization, initialState);
+  const [state, formAction] = useActionState(createOrganization, initialState);
 
   return (
     <form action={formAction} className="space-y-4">

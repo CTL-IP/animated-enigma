@@ -1,6 +1,6 @@
 'use client';
 
-import { useFormState } from 'react-dom';
+import { useActionState } from 'react';
 import { Mail } from 'lucide-react';
 import { sendDocumentEmail } from '@/lib/email/actions';
 import type { EmailKind } from '@/lib/email/email-core';
@@ -30,7 +30,7 @@ export function EmailToClient({
   /** Why sending isn't possible right now (e.g. not yet marked sent). Renders instead of the button. */
   disabledReason?: string | null;
 }) {
-  const [state, action] = useFormState(sendDocumentEmail, {});
+  const [state, action] = useActionState(sendDocumentEmail, {});
   const canSend = Boolean(recipient?.email) && !disabledReason;
 
   return (

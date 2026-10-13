@@ -1,6 +1,6 @@
 'use client';
 
-import { useFormState } from 'react-dom';
+import { useActionState } from 'react';
 import Link from 'next/link';
 import { AlertTriangle } from 'lucide-react';
 import { createClient, updateClient, type ClientFormState } from '@/lib/clients/actions';
@@ -44,7 +44,7 @@ export function ClientForm({
   values?: ClientFormValues;
   mode: 'create' | 'edit';
 }) {
-  const [state, formAction] = useFormState(
+  const [state, formAction] = useActionState(
     mode === 'create' ? createClient : updateClient,
     initial,
   );

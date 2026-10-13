@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   computeLineCost,
   computeEstimate,
+  defaultTaxable,
   formatMoney,
   formatMarginPct,
   isLineType,
@@ -15,6 +16,24 @@ describe('line types', () => {
     expect(LINE_TYPES).toHaveLength(6);
     expect(isLineType('labor')).toBe(true);
     expect(isLineType('nonsense')).toBe(false);
+  });
+});
+
+describe('defaultTaxable', () => {
+  it('starts labor untaxed and materials and equipment taxed, as catalog lines are', () => {
+    expect(defaultTaxable('labor')).toBe(false);
+    expect(defaultTaxable('material')).toBe(true);
+    expect(defaultTaxable('equipment')).toBe(true);
+  });
+
+  it('starts the types that could be either taxed, for the tax check to ask about', () => {
+    expect(defaultTaxable('subcontractor')).toBe(true);
+    expect(defaultTaxable('allowance')).toBe(true);
+    expect(defaultTaxable('other')).toBe(true);
+  });
+
+  it('covers every line type', () => {
+    expect(LINE_TYPES.filter((t) => !defaultTaxable(t))).toEqual(['labor']);
   });
 });
 

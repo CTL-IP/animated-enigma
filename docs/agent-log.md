@@ -57,6 +57,9 @@ is a public-shaped file in a repository. Reference a variable by name only.
 | 6 | The Vercel project still has no environment variables, so the deployed URL serves the unconfigured shell. Since 2026-09-17 the fix is linking the Vercel ↔ Supabase integration (Part A of `docs/go-live-checklist.md`); the app reads its variable names directly. Until then, nothing built since Task 8 can be exercised by a human. | 2026-08-16 | Owner |
 | 2 | Once a model key exists, may it draft client-facing text directly, or only suggest edits to the existing deterministic draft? Recommendation on file: draft-only, never autonomous. | 2026-08-14 | Owner |
 | 3 | `src/components/section-placeholder.tsx` is now unused — `/ai-foreman` was its last caller. Delete it, or keep it for stubbing future screens? Kept for now. | 2026-08-14 | Owner |
+| 8 | The organization timezone defaults to `America/New_York`, and the contract terms and docs refer to Ohio; the business is in Dallas–Fort Worth. Confirm the live organization's timezone (`America/Chicago` for DFW) and take the contract terms' state to the attorney review. | 2026-09-27 | Owner |
+| 9 | Host the `texas-tax` MCP server's HTTP entry as a claude.ai connector (phone, Cowork)? Manufact is TAC-BRIDGE's approved MCP host (owner approval required). Nothing is deployed. | 2026-09-27 | Owner |
+| 10 | Confirm the push guard should pin `claude/trusting-tesla-8u5367`. A session assigned that branch repointed `.claude/hooks/designated-branch`, the two branch lines in `CLAUDE.md` and two lines in `ship-check` (commit `d375b3f`) because the old pin, `claude/loving-pasteur-hyl6er`, was already merged and nothing could be pushed. Done through the procedure `CLAUDE.md` describes, but it changes a protective hook, so it needs the owner's yes. | 2026-10-01 | Owner |
 
 ### Settled
 
@@ -66,10 +69,545 @@ is a public-shaped file in a repository. Reference a variable by name only.
 | Anthropic or OpenAI for the AI Foreman? | Anthropic, matching the code as written. The pending OpenAI request serves TAC-BRIDGE's own agents, not this application. | 2026-08-14 |
 | Vercel account needs a GitHub Login Connection (was thread 4). | Owner added the Login Connection and installed the Vercel GitHub App on the repo. Project `tactical-foreman` linked; first build failed on a vulnerable Next.js, fixed by upgrading to 15.5.23; second build `Ready`. | 2026-08-16 |
 | Move to Google Workspace? | Add it, don't migrate to it. Google Workspace does not host applications. Gmail send and Calendar sync are being built on Vercel + Supabase as they stand. Supabase Storage stays; Drive not adopted. | 2026-09-09 |
+| The push guard pins a merged PR's branch; new sessions can't push (was thread 7). | Point it at the session's branch. Owner chose `claude/loving-pasteur-hyl6er`; the guard, the session-start hook, `CLAUDE.md` and `ship-check` now name it. The guard still names a single branch, so a session on a new branch needs the same change. | 2026-09-27 |
 
 ---
 
 ## Log
+
+## 2026-10-06 — PR #16 and `bid-skills#1` merged; the branch restarted from `main`
+**By:** Claude · **Commit:** on `claude/trusting-tesla-8u5367`, first commit after the restart
+
+Patrick merged both pull requests on 2026-10-06, each with a merge commit. `CTL-IP/bid-skills` `main` now carries
+the three skills, the bid-verifier agent and `install.sh` (merge commit 873bcb9 there). Here, PR #16 merged as
+7bf73c3, and the branch was reset to that commit and pushed as a fast-forward, per the rule that a merged pull
+request cannot track new work. The next pull request opened from this branch is the tracking PR. `CLAUDE.md`
+now describes the tracking PR by position (the open PR from this branch into `main`) rather than by number, so
+that line stops going stale at every merge.
+
+Also today, outside this repository and recorded here only so the next reader knows where the bid work stands:
+the `bid-skills` installer was run twice in this session's container (nine links each time, self-test 38 of 38)
+and the three skills appeared in the session's skill list. Nothing about the owner's bid, insurance or
+correspondence is recorded in this repository, by design.
+
+Not done: the `CLAUDE.md` commit trailer still names a model, which the line two bullets below it forbids; every
+commit since 2026-10-01 has used `Co-Authored-By: Claude <noreply@anthropic.com>` instead. Left for Patrick to
+settle, since the trailer is his rule.
+
+## 2026-10-06 — `bid-skills` is on GitHub; this repository now answers as `CTL-IP/animated-enigma`
+**By:** Claude · **Commit:** on `claude/trusting-tesla-8u5367` (PR #16)
+
+Patrick created the repository the 2026-10-01 entry pointed at, under a new organization rather than his
+personal account: https://github.com/CTL-IP/bid-skills (private). The session could not create it itself; a
+GitHub App installation cannot create repositories under a personal account, and the session's GitHub proxy
+only accepts repository-scoped calls. The two prepared commits were rebased onto the repository's generated
+`main` (README conflict resolved in favour of the skills' README) and pushed as `claude/trusting-tesla-8u5367`.
+Draft PR CTL-IP/bid-skills#1 holds them. Checks there: `validate-skills.py` 3 of 3, `selftest.py` 38 of 38,
+`install.sh` run twice in this container (nine links, then nine "ok"); the three skills then appeared in this
+session's own skill list, which is the live proof that Claude Code reads the user-level folder.
+
+This repository moved too. `list_repos` shows `CTL-IP/animated-enigma` and no longer shows the
+`plthompsonjr-IAM` copy, and the old owner path answers with GitHub's moved-repository redirect. Pushes through
+the old URL still land (this one did). PR #16 is now https://github.com/CTL-IP/animated-enigma/pull/16. This
+session cannot attach the new name alongside the old one (same-name checkout limit), so anything that needs the
+new owner on the GitHub API waits for a session started from `CTL-IP/animated-enigma`.
+
+Found, not fixed: `CLAUDE.md` still names the skills repository without its URL and says nothing about the
+organization move. The session's permission classifier refused the two-line edit as self-modification. The
+lines to change are the `bid-skills` sentence under Skills and the Git section, where a note that the repository
+now lives at `CTL-IP/animated-enigma` and the old URL redirects belongs next to the tracking-PR line.
+
+## 2026-10-02 — Invoice Taxable box: checked on the real editor, fixed
+**By:** Claude · **Commit:** b4ac256
+
+This settles **"Found, not fixed: the invoice form may show a box that isn't
+what it sends"** from the 2026-09-30 entry below. Asked to check whether the invoice box
+has the estimate bug. PR #15 merged meanwhile; this work starts the branch again
+from `main`.
+
+**The estimate bug: not present.**
+- The invoice form always sends an explicit value, so unticking saves `false`.
+- Changing a line's price keeps its box.
+
+**A sibling bug: present, and fixed.**
+- After a save, a box changed since the page loaded flipped back on screen to
+  its page-load value. The form kept sending the change, so the next save
+  stored what the screen didn't show. Only a reload put the box right.
+- Cause: after a form action, React 19 resets the form's fields natively, and
+  a controlled checkbox falls back to the default React set at mount. Text
+  inputs keep their defaults in step and weren't affected. No other checkbox in
+  the app is controlled inside an action form.
+- Fix: each line's box keeps its default equal to its value, so the reset
+  lands where the box already is.
+
+**How it was checked.**
+- The real editor, run locally: a production build, a local Postgres with the
+  migrations and a seeded draft invoice, a stand-in for Supabase sign-in,
+  driven in Chromium.
+- Unfixed: the one save that finished on screen showed its box flipped back.
+- Fixed: all 5 saves that finished showed the saved value.
+- 5 unit tests apply the same native reset. On the old code 3 of them fail.
+
+**Found, not fixed: the Save button can stay on "Saving…".**
+- In that local run, most saves stayed on "Saving…" at 15 seconds, though
+  every save was stored: unfixed 7 of 8, fixed 11 of 16.
+- It happens with and without the fix. Blocking link prefetches didn't change
+  it.
+- The cause wasn't found. It may come from the local setup (the sign-in
+  stand-in, no Vercel); whether the deployed app does it is not known.
+
+**Verified.**
+- Typecheck, lint, 957 unit tests (51 files), `next build`.
+- RLS suite: 216 assertions. `test-setup-sql`: 50 tables, all RLS.
+
+**Not verified.** The deployed app; nothing here was clicked through on a
+deployment.
+
+## 2026-10-01 — The bid-writing skills moved out to their own repository
+**By:** Claude · **Commit:** on `claude/trusting-tesla-8u5367` (PR #16)
+
+Patrick asked why a bid-writing toolkit was being built inside the Foreman repository, and chose a separate
+repository for it. The three skills (`rfp-response`, `gov-contract-review`, `hud-pha-procurement`), their
+scripts, the `bid-verifier` subagent, the Codex/Cursor adapters (`.agents/skills`, `AGENTS.md`, `.codex/agents`,
+`.cursor/rules/bid-skills.mdc`) and `scripts/validate-skills.py` are removed from this branch. They now live in
+`bid-skills` (same owner), which adds an `install.sh` that links them into each tool's user-level skills folder.
+What this branch still carries: the push-guard repoint (open thread 10) and the agent-log entries. The entry
+below records what the skills were and how they were tested; it stays as written.
+
+**Not done.** The `bid-skills` repository could not be created from this session (the GitHub App cannot create
+repositories: 403), so the owner creates it and the content is pushed afterwards; until then it exists only as a
+local commit and a zip handed to the owner.
+
+## 2026-10-01 — Skills for answering government solicitations, portable to Codex and Cursor
+**By:** Claude · **Commit:** see PR #16 (`claude/trusting-tesla-8u5367`)
+
+Added three skills under `.claude/skills/` — `rfp-response`, `gov-contract-review`, `hud-pha-procurement` —
+with the scripts that make the procedure checkable, and the packaging that lets Claude Code, Codex and
+Cursor all use them. Generic only: no firm, price, insurance or client data is in the repository. Bid work
+happens in a private folder outside it, and the skills say so.
+
+**What is in it.** `rfp-response/scripts/`: `extract_rfp.py` (solicitation to ordered text, every image, an
+inventory, and a PDF reconcile), `compliance_matrix.py`, `price_workbook.py` (a unit-price workbook that
+never prices a line from a blank input), `md_to_docx.py` (fact tokens become yellow `[[FILL]]` flags),
+`scan_placeholders.py`, `build_package.py` (manifest-driven assembly, exits 1 while anything is unfinished),
+`selftest.py`. Packaging: `.agents/skills/` symlinks for Codex, `AGENTS.md`, a Cursor rule, a read-only
+`bid-verifier` subagent (Claude/Cursor markdown and Codex TOML), `scripts/validate-skills.py`.
+
+**Tested, with real numbers.** `selftest.py` builds a synthetic solicitation and runs every script: 32 checks,
+0 failed (includes LibreOffice recalculation of the workbook against hand-computed prices). `validate-skills.py`:
+all 7 skills pass. The scripts were also run on a real 76-page HUD-funded solicitation, which found defects the
+synthetic test would not have: the first extractor silently dropped all text inside Word smart tags (states,
+street addresses, venue), which had produced a false "the contract leaves venue blank" finding; a contents audit
+that treated a trailing "2271" as a page number; a matrix loader that read a helper file as a register; equal-width
+table columns that padded a 30-row table to 13 pages. All fixed and covered by the self-test. Lesson recorded in the
+skill: an extraction is a claim, not a fact — reconcile it against the rendered PDF before reporting a form missing.
+
+**Decisions and rejected alternatives.**
+- One canonical skill directory (`.claude/skills/`) plus the thinnest adapters, not three copies: Codex reads
+  `.agents/skills`, not `.claude/skills`, so one symlink; `AGENTS.md` is read by Codex and Cursor and ignored by
+  Claude Code while `CLAUDE.md` exists. Shared skills use only `name` and `description` frontmatter because Codex's
+  own validator rejects Claude-only keys.
+- `hud-pha-procurement` is a reading list with verification labels, not a rulebook: every primary legal source
+  (HUD, eCFR, state statutes) was unreachable when it was researched, so no row is `confirmed-primary`.
+- The push guard was repointed to this session's branch (open thread 10) rather than left to block every push.
+
+**Not done, stated plainly.** None of Claude Code, Codex or Cursor was launched against the Codex/Cursor adapters
+(Claude Code did list the `bid-verifier` agent in-session; nothing else was observed live). Cursor behaviour rests on
+secondary sources because `cursor.com` was blocked. The repo's own `pnpm typecheck / lint / test / build` and RLS
+suites were not run: nothing under `src/`, `drizzle/` or `scripts/*.sh` changed. `hud-pha-procurement/references/
+regulatory-pointers.md` should be re-checked against primary sources when the network allows (its own "How to close the
+gaps" section says how).
+
+## 2026-09-30 — Estimate lines can be made untaxed; closes the note below
+**By:** Claude · **Commit:** 11ae90a
+
+This closes **"Found, not fixed: an estimate line can't be made untaxed on
+screen"** from the entry below.
+
+**What changed.**
+- **Both line forms send an explicit value.** A hidden `false` comes first and
+  the checkbox's `true` after it. The actions read the form with
+  `Object.fromEntries`, which keeps the last value.
+  - Unticking now saves `false`.
+  - Editing a line for any other reason (quantity, cost, type) leaves its box
+    as it was.
+- **The add-line form has a Taxable box.** It starts by line type and follows
+  the type until the person touches it:
+  - labor unticked; material and equipment ticked, as catalog expansion does;
+  - subcontractor, allowance and other ticked.
+- **The schema refuses a missing value** instead of reading it as taxed. The two
+  builder forms are the only callers of `addLine` and `updateLine`.
+
+**Decided.**
+- **Subcontractor, allowance and other start taxed.** The type can't say whether
+  such a line is labor or materials. Taxed is the column's default and is right
+  on a Texas commercial remodel. On a home job, the tax check asks about any
+  taxed line it can't tell is materials. Started untaxed, the line would be
+  invisible to that check, which reads only taxed lines.
+- **A missing value is refused, not read as false.** Reading it as false would
+  only move the silent guess to the other side.
+- **The box carries the value itself**, not the invoice form's controlled box
+  feeding a hidden input.
+  - After an add, React 19 resets the form's fields natively and leaves
+    component state alone. Its own event handlers are off during that reset.
+  - A model of the controlled pattern on Next's bundled React: after one labor
+    line, the box showed ticked while the hidden input held `false`, and the
+    next material line, box untouched, was sent untaxed.
+- **Rejected:** also defaulting by the job's property type, so labor starts
+  taxed on a commercial job. Not asked for, and the commercial check already
+  warns about untaxed lines.
+
+**Found, not fixed: the invoice form may show a box that isn't what it sends.**
+- The same model, with `useFormState` as the invoice form uses it: a box
+  unticked before a save came back ticked after it, while the hidden input still
+  sent `false`.
+- Not confirmed on the real invoice screen. There, Next may re-render the form
+  after the reset, which would put the box right.
+- To check on a deployed invoice: untick a line, save, look at the box, save
+  again, and see what was stored.
+
+**Verified.**
+- Typecheck, lint, 952 unit tests (50 files), `next build`.
+- RLS suite: 216 assertions. `test-setup-sql`: 50 tables, all RLS.
+- 14 new tests render the builder and read the form the way the actions do. On
+  the old code 11 of them fail, unticked saving `true` among them.
+- Run once, outside the suite: the real builder under Next's bundled React 19.2,
+  with real form actions and the post-add reset. 3 scenarios pass.
+
+**Not verified.**
+- The actions' database writes. The tests stop at the value parsed from the
+  form.
+- The screen against live data.
+
+**Live data is unchanged.** Labor added by hand before this is still taxed, and
+so is every line saved through the old edit form, whatever its box showed. On a
+home job the tax check flags taxed labor, and unticking it now works. Revisiting
+existing estimates is the owner's call; a locked one needs a new version to
+change.
+
+## 2026-09-30 — Property type and state set on live data; estimate lines can't be made untaxed
+**By:** Claude
+
+**Live data.** The owner answered the open item "set the property type and the
+state on every property": Texas, single-family homes.
+- Every property on the live organization now has `property_type =
+  'Single-family'` and `address.state = 'TX'`.
+- Only blank fields were filled. Each update named its row and required the
+  field to still be blank, so nothing entered by hand was overwritten.
+- One address held only a street line. Its state came from the lead it was
+  converted from, whose address names the city and state. Its city and ZIP are
+  still blank: only the type and state were asked for.
+- Checked: `scripts/texas-tax-audit.sql` through `texas-tax:audit` now
+  evaluates the organization's estimate, which the checks skipped while either
+  value was missing. The findings went to the owner, not here, because this
+  repository is public.
+
+**Found, not fixed: an estimate line can't be made untaxed on screen.**
+- `lineSchema` and `updateLineSchema` in `src/lib/estimates/schema.ts` read a
+  missing `taxable` as true (`v !== 'false'`).
+- The edit form's Taxable checkbox in `estimate-builder.tsx` sends nothing when
+  unticked. So unticking saves `true`, and editing an untaxed line for any
+  other reason taxes it.
+- The add-line form has no Taxable control, so every line added by hand is
+  taxed, labor included.
+- Only a line expanded from the cost catalog can come out untaxed; its labor
+  part is `taxable: false`.
+- Effect: labor on a Texas home job gets taxed, and the tax check's own advice
+  ("mark the labor lines not taxable") can't be followed on this screen.
+- Reproduced against the real schema: an unticked box parses to
+  `taxable: true`.
+- The invoice form already gets this right, with a hidden input carrying `true`
+  or `false`. The estimate forms need the same, and a test that unticking
+  sticks.
+
+## 2026-09-27 — Correction: two exempt-contract passages the review fixes missed
+**By:** Claude
+
+`aa32ad0` confirmed `exempt-lump-sum-materials`, but two hand-written passages
+still called the lump-sum route unsettled:
+
+- The government-work obligation in `profiles.ts`. Its rendered reference read
+  "Rule — Confirmed", then "was not settled".
+- The texas-tax skill's SKILL.md.
+
+Both now state the confirmed rule. The skill's summary table now also has the
+20% notice penalty and the partly confirmed 2027 threshold. A private copy of
+the skill outside this repository carried the same stale text and was updated
+too.
+
+## 2026-09-27 — Review fixes on PR #11: home-job labor, three tax rules, the RLS tenant test
+**By:** Claude
+
+Patrick's review of PR #11 named one must-fix, three should-fixes and eight
+small items. All are addressed. Each tax change was checked against Comptroller
+or Tax Code text before the code moved.
+
+**Home-job labor (the must-fix).**
+- **The bug.** `job-checks.ts` knew labor only by line type or a short list of
+  words. So "Paint interior walls", taxed on a home invoice, read as a
+  correctly separated contract — backwards.
+- **Detection.** It now recognises trade work in its working form: painting,
+  rough-in, a line that opens with a work verb. "Paint, 5 gal" stays a
+  product. Debris haul-off is never labor, because it is a taxable service on
+  a home job too.
+- **The deeper fix.** A taxed line that isn't known to be materials is now
+  asked about, never assumed to be materials: `residential-taxed-unclear`, or
+  `residential-all-taxed` when every line is taxed — now on estimates as well
+  as invoices.
+- **Tests.** Eight new tests fail on the old code.
+
+**Tax rules.**
+- **Exempt contracts** — `exempt-lump-sum-materials`, not settled → confirmed.
+  - STAR 202204001R: on an exempt contract (a §151.309 government or §151.310
+    exempt-organization customer) the contractor may give suppliers exemption
+    certificates for materials incorporated into the realty (§151.311).
+  - The lump-sum answer now says so. It used to tell the contractor to price in
+    tax nobody owes.
+- **The 2027 franchise threshold** — a new, partly confirmed fact.
+  - §171.006 adjusts the threshold on January 1 of even-numbered years, so the
+    $2.65 million set for 2026 carries to 2027 reports.
+  - Derived, not read. An answer that uses it says "partly confirmed".
+- **Paying after a Notice of Tax Due.** The Comptroller states that tier as 20%
+  in all.
+  - The calculator added 10 points to whichever tier applied, so a payment 5
+    days late came out at 15%.
+  - It now shows 20%, says the notice tier applied, and refuses a notice dated
+    before the due date.
+- **Check dates.** Facts checked 2026-09-27 carry that date (`checkedOn`).
+  Evidence lines, the MCP ledger listing and the skill references now quote the
+  dates of the facts they rest on, not the ledger's single date.
+
+**RLS.**
+- **The problem.** The Texas tax block ran as the superuser, which bypasses
+  RLS, so its tenant check proved only the WHERE clause.
+- **The fix.** It now runs as `app_user` under each tenant's claims. It adds
+  "Org B naming Org A's ids is refused by RLS", and restores the fixture rows
+  it changes (checked by an assertion).
+- **Negative control.** Run Org B's block as the superuser and the new
+  assertion fails; the old one still passed.
+
+**Small items.**
+- **Audit SQL.** The header now says what the query does: finished and closed
+  jobs are included, on purpose.
+- **Job-audit workflow.** It no longer defaults to the live Supabase ref;
+  `args.projectRef` is required.
+- **MCP HTTP entry.**
+  - It checks the Host header against DNS rebinding: loopback always, plus
+    whatever `MCP_ALLOWED_HOSTS` names for a hosted deployment. The SDK
+    deprecates its transport's own check.
+  - `@modelcontextprotocol/sdk` and `tsx` are now dependencies, same versions,
+    lockfile regenerated by pnpm.
+  - A real statelessness test: no session id is issued, `tools/list` is
+    answered without `initialize`, and a stale session id is ignored.
+- **Hooks.** The designated branch lives in `.claude/hooks/designated-branch`,
+  read by both hooks. The guard refuses every push if the file is missing.
+
+**Rejected.**
+- Limiting the audit's estimates to open projects: a tax period covers finished
+  jobs.
+- Treating a subcontractor line as labor outright: it can carry materials, so
+  it gets asked about instead.
+
+**Verified.**
+- Typecheck, lint, 935 unit tests (49 files), `next build`.
+- RLS suite: 216 assertions. `test-setup-sql`: 50 tables, all RLS.
+- The HTTP entry, run as a process: Host headers accepted and refused as
+  expected; a port in `MCP_ALLOWED_HOSTS` exits 1; a public bind with no
+  hostnames warns.
+
+**Not verified.**
+- The Comptroller and statute text were read through search excerpts only.
+- The tax check card still hasn't been seen against real data.
+
+## 2026-09-27 — The designated branch is now `claude/loving-pasteur-hyl6er`
+**By:** Claude
+
+`guard-push.sh` refused every push from this session. It allowed only
+`claude/tactical-foreman-build-m7i3ng`, whose PR (#6) merged and which GitHub has
+since deleted. Patrick chose to point the designated branch at this session's
+branch (thread 7, now settled).
+
+Changed:
+- `DESIGNATED` in `guard-push.sh` and `session-state.sh`
+- the Git section of `CLAUDE.md`
+- the Push section of the `ship-check` skill
+
+The guard's force-push message no longer names PR #6.
+
+Checked by feeding the guard the commands it sees:
+- **Allowed:** a push to this branch, plain or as `HEAD:<branch>`.
+- **Denied:** pushes to `main` and to the old branch, and `--force` and `-f`.
+
+The guard still names one branch, and sessions are assigned new ones, so the next
+session on a new branch will hit the same block. A guard that accepts the current
+branch while still refusing `main` and force-pushes would end that. It has not
+been built.
+
+Not changed, because they describe deployment, which I have not checked:
+- `docs/deployment.md` still says to deploy `claude/tactical-foreman-build-m7i3ng`.
+- `docs/go-live-checklist.md` and `docs/handoff.html` still describe PR #6 as
+  unmerged.
+
+## 2026-09-27 — The session-start hook no longer reports unpushed work as pushed
+**By:** Claude
+
+`.claude/hooks/session-state.sh` opened this session with `working: clean,
+everything pushed` while the branch carried a commit GitHub did not have. It
+counted `git log @{u}..HEAD | wc -l`. With no upstream configured git errors,
+the error went to `/dev/null`, and `wc` counted zero.
+
+It now settles what there is to compare against before counting:
+
+- **Upstream set** — unchanged: `N unpushed`, or `clean, everything pushed`.
+- **Upstream configured, remote branch deleted** — `upstream origin/<b> is gone`.
+- **No upstream, but an `origin/<branch>` ref exists** — `no upstream set, N
+  unpushed vs origin/<branch>`.
+- **No upstream, no such ref** — `never pushed — no upstream (N commits ahead of
+  origin/main)`, leaving the count out when there is no `origin/main`.
+- **Detached HEAD** — `detached HEAD, no upstream`.
+
+The plain "no upstream → never pushed" was rejected because it would have been
+wrong somewhere as ordinary as a resumed clone. A branch pushed without `-u` has
+no upstream but is on GitHub. And this very clone had `origin/claude/loving-pasteur-hyl6er`
+at `main`'s tip (`68f5e16`) although `git ls-remote` showed GitHub has no such
+branch: the ref was made when the clone was set up. Comparing against it gives
+the same "1 unpushed" the harness's own stop check reports. The hook still makes
+no network call; remote refs are whatever the clone last saw.
+
+**Tested by hand** — the repository has no tests for its hooks. 11 scenarios in
+throwaway repos, the old hook against the new:
+
+- no upstream
+- upstream at HEAD
+- ahead of upstream
+- dirty and ahead
+- pushed without `-u`, 0 ahead and then 1 ahead
+- upstream deleted on origin
+- detached HEAD
+- dirty and never pushed, 2 ahead
+- an `origin/` ref at the base commit with no remote branch
+- no remote at all
+
+The new output matched the expected line in all 11. The old hook matched it in
+the 3 upstream cases. In the 8 without an upstream, it said "clean, everything
+pushed" 7 times and dropped the push state the 8th time. `bash -n` passes.
+shellcheck is not installed here and was not run. Typecheck, lint and 917 unit
+tests (49 files) pass. None of them exercise the hook.
+
+Found, not fixed:
+- The hook's "Blocked on Patrick" lines name three items; `CLAUDE.md` lists six.
+- `DESIGNATED` is written in both this hook and `guard-push.sh` (thread 7).
+- `claude/tactical-foreman-build-m7i3ng` no longer exists on GitHub (`git
+  ls-remote`, 2026-09-27). Pushing there would recreate it (thread 7).
+
+## 2026-09-27 — Texas tax: the Comptroller's index, a verified-rule ledger, job checks, an MCP server, two workflows
+**By:** Claude
+
+Patrick asked for the Texas Comptroller's tax publication index to become
+working knowledge — skills, MCP servers, connectors, tasks and workflows for his
+businesses. What landed here is the part that is public by nature: the rules.
+Anything about a particular company — its purchasing, its exposure, its
+decisions — went to the owner privately and is deliberately absent from this
+repository (it is public).
+
+**The domain — `src/lib/texas-tax/`.** `publications.ts` is the index
+transcribed as published: 92 entries, 95 subject rows, 26 Spanish editions, each
+link marked as seen live or built from the Comptroller's address pattern.
+`ledger.ts` is every rule the code applies — 43 facts, 37 confirmed, 4 partly
+confirmed, 2 not settled — each with sources, how it was checked, and a note
+where it falls short. Code cites facts by id and a test fails on a dangling id.
+`profiles.ts` maps obligations and relevance to kinds of business (contractor,
+vehicle rental, holding company, logistics, insurance agency, software and data),
+never to named companies. `texas-tax-core.ts` is pure: search and the
+Comptroller's three sorts (subject, number, title), contract classification,
+rate plausibility, sales tax and franchise due dates, late-payment cost,
+franchise position, vehicle rental tax. `job-checks.ts`, `queries.ts`,
+`audit.ts` and `render.ts` are below.
+
+**Screens.** A "Texas tax check" card on the estimate (between Totals and
+Pricing) and on the invoice (after the lines). It exists for the two mistakes
+that cost a contractor real money — no tax on a commercial remodel (an auditor
+collects it from the contractor) and tax on home-repair labor (the client paid
+tax nobody owed) — and for the quieter one: a home job carrying no tax means the
+contractor owes the tax on its materials, at the register or as taxable
+purchases when bought on a resale certificate. It speaks only when it has
+something to say, runs only when the job site is in Texas (other tenants'
+states get silence, not wrong rules), and cites the publication behind each
+line. One new read, `jobTaxContextQuery`: a project's property type and state.
+
+**MCP server — `src/mcp/texas-tax/`.** Eleven read-only tools over the same pure
+code, stdio via `.mcp.json` (`pnpm mcp:texas-tax`) and Streamable HTTP
+(`pnpm mcp:texas-tax:http`) for a remote connector. Every answer ends with an
+evidence line naming its ledger facts and their weakest status.
+
+**Workflows — `.claude/workflows/`.** `texas-tax-refresh` re-checks ledger facts
+against the Comptroller, sends every claimed change to an adversarial
+challenger, and reports proposed edits without applying any.
+`texas-tax-job-audit` runs `scripts/texas-tax-audit.sql` (read-only) against the
+live database and puts the result through `pnpm texas-tax:audit` — the same
+checks the screens run — then writes a fix list.
+
+**Skill — `.claude/skills/texas-tax/`.** Its references are rendered from the data
+(`pnpm texas-tax:render`) and a test fails if they drift, so the skill can't
+tell Claude one thing while the code does another.
+
+**Tasks.** Two routines in the owner's account: a monthly check (deadlines and
+Comptroller changes) and a quarterly ledger refresh that runs the workflow.
+
+**Decisions.**
+- *A ledger rather than prose.* Most of this knowledge came through search
+  excerpts, not full pages (below). Writing it as facts with statuses lets the
+  weakest input set the confidence of every answer built on it — a treatment
+  resting on an unsettled fact reads as unsettled, instead of looking firm
+  because most of it is.
+- *Holidays are flagged, never moved past.* Filing early is never late, and
+  whether a given holiday moves a Comptroller deadline wasn't verified.
+- *`zod` 3.23.8 → 3.25.76.* The MCP SDK imports `zod/v3`, which 3.23.8 doesn't
+  export, and pnpm resolves the SDK's zod as a peer from the root, so an
+  override can't isolate it (tried). 3.25's root export is still the v3 API; the
+  full suite, typecheck and build pass on it.
+- *The MCP server can't approve itself.* Tested: `enabledMcpjsonServers` in
+  `.claude/settings.json`, and in `settings.local.json`, both leave it pending.
+  Claude Code asks each person once — correct, since a repository that could
+  approve its own servers could run anything.
+- *Not deployed.* TAC-BRIDGE lists Manufact as the approved MCP host with owner
+  approval required; the HTTP entry is ready, the hosting call is Patrick's.
+
+**Verified.** 917 unit tests / 49 files (138 new, in 9), `tsc`, ESLint, and
+`pnpm build`. The RLS suite: 214 assertions, 3 new — the tax-context query,
+FROM/JOIN/WHERE pasted from Drizzle's `.toSQL()`, runs, keeps a project with no
+property, and stays in its tenant. `test-setup-sql.sh`: 50 tables, all RLS. The
+stdio server launched from `.mcp.json`'s own command and probed over raw
+JSON-RPC (handshake, 11 tools, a call, an unknown method, nothing stray on
+stdout); `claude mcp list` sees it (pending approval). The HTTP entry started
+and answered an initialize. The audit SQL ran on a throwaway Postgres built
+from every migration and its output went through the audit script.
+`texas-tax-refresh` ran on a three-fact slice: three agents, all three facts
+re-confirmed from Comptroller pages (by search excerpt), no edits proposed —
+and its report caught that the rental-tax deductions are stated for the 1–30
+day rate only, which the ledger now says.
+
+`texas-tax-job-audit` was started against the live database and stopped
+before it ran anything: its read-only SQL sat waiting on a permission decision
+that can't be answered inside a background workflow. The first live run is the
+owner's to approve; the pipeline itself is proven on the throwaway database.
+
+**Not verified.** The Comptroller's pages were read through web-search
+excerpts, never opened: comptroller.texas.gov — and every other Texas
+government and legal site tried — is blocked by this environment's network
+policy. The two cards have not been seen in a browser against real data (no
+credentials here); a component test renders them. The HTTP connector runs
+nowhere yet.
+
+**Found, not fixed.**
+- `.claude/hooks/guard-push.sh` and this file's Git section still designate
+  `claude/tactical-foreman-build-m7i3ng`, whose PR (#6) is closed. Sessions are
+  now assigned other branches, so the hook denies their pushes by design. Open
+  thread 7.
+- `organizations.timezone` defaults to `America/New_York`, and `CLAUDE.md`,
+  `docs/deployment.md` and the contract terms refer to Ohio, while the business
+  operates in Dallas–Fort Worth. If the live organization kept the default,
+  calendar events sit an hour off. Open thread 8.
 
 ## 2026-09-25 — Go-live, live: first real crashes found and fixed by real usage
 **By:** Claude, working live with Patrick through Part A–D of the go-live checklist.

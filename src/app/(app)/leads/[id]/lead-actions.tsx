@@ -1,6 +1,6 @@
 'use client';
 
-import { useFormState } from 'react-dom';
+import { useActionState } from 'react';
 import {
   changeLeadStatus,
   assignLead,
@@ -108,7 +108,7 @@ export function FollowUpPicker({
 const noteInitial: FormState = {};
 
 export function AddNoteForm({ leadId }: { leadId: string }) {
-  const [state, formAction] = useFormState(addLeadActivity, noteInitial);
+  const [state, formAction] = useActionState(addLeadActivity, noteInitial);
   return (
     <form action={formAction} className="space-y-2">
       <FormNotice error={state.error} message={state.message} />

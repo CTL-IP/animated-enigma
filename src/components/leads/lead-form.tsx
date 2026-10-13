@@ -1,6 +1,6 @@
 'use client';
 
-import { useFormState } from 'react-dom';
+import { useActionState } from 'react';
 import Link from 'next/link';
 import { createLead, updateLead } from '@/lib/leads/actions';
 import type { FormState } from '@/lib/auth/actions';
@@ -80,7 +80,7 @@ export function LeadForm({
   values?: LeadFormValues;
   mode: 'create' | 'edit';
 }) {
-  const [state, formAction] = useFormState(mode === 'create' ? createLead : updateLead, initial);
+  const [state, formAction] = useActionState(mode === 'create' ? createLead : updateLead, initial);
   const v = values ?? {};
 
   return (

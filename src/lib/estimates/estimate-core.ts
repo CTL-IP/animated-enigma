@@ -45,6 +45,20 @@ export const LINE_TYPE_STYLES: Record<LineType, string> = {
   other: 'bg-slate-500/15 text-slate-600 dark:text-slate-400',
 };
 
+/**
+ * Whether a line entered by hand starts out taxed: labor no, materials and
+ * equipment yes — the split the catalog expansion in `actions.ts` makes.
+ *
+ * A subcontractor, allowance or "other" line could be labor or materials, so
+ * its type can't say. It starts taxed, the column's default: right on a Texas
+ * commercial remodel, where the whole charge is taxable, and on a home job the
+ * tax check asks about any taxed line it can't tell is materials. Starting it
+ * untaxed would hide it from that check, which only looks at taxed lines.
+ */
+export function defaultTaxable(lineType: LineType): boolean {
+  return lineType !== 'labor';
+}
+
 // ── Line + estimate math ─────────────────────────────────────────────────────
 
 export interface EstimateLineInput {

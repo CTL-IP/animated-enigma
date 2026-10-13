@@ -1,7 +1,6 @@
 'use client';
 
-import { useState } from 'react';
-import { useFormState } from 'react-dom';
+import { useActionState, useState } from 'react';
 import { Bookmark } from 'lucide-react';
 import { saveVersionAsTemplate } from '@/lib/scopes/template-actions';
 import type { FormState } from '@/lib/auth/actions';
@@ -22,7 +21,7 @@ export function SaveAsTemplate({
   defaultProjectType?: string | null;
 }) {
   const [open, setOpen] = useState(false);
-  const [state, formAction] = useFormState(saveVersionAsTemplate, initial);
+  const [state, formAction] = useActionState(saveVersionAsTemplate, initial);
 
   if (state.message && open) setOpen(false);
 

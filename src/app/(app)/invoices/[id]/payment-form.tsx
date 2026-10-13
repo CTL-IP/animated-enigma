@@ -1,7 +1,6 @@
 'use client';
 
-import { useState } from 'react';
-import { useFormState } from 'react-dom';
+import { useActionState, useState } from 'react';
 import { recordPayment } from '@/lib/invoices/actions';
 import {
   PAYMENT_METHODS,
@@ -30,7 +29,7 @@ export function PaymentForm({
   invoiceId: string;
   balance: number;
 }) {
-  const [state, formAction] = useFormState(
+  const [state, formAction] = useActionState(
     recordPayment,
     {} as { error?: string; message?: string },
   );

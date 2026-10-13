@@ -1,7 +1,6 @@
 'use client';
 
-import { useFormState } from 'react-dom';
-import { useState } from 'react';
+import { useActionState, useState } from 'react';
 import { Plus } from 'lucide-react';
 import { createTask } from '@/lib/tasks/actions';
 import {
@@ -44,7 +43,7 @@ export function TaskForm({
   punchList?: boolean;
 }) {
   const [open, setOpen] = useState(false);
-  const [state, formAction] = useFormState(createTask, initial);
+  const [state, formAction] = useActionState(createTask, initial);
 
   if (!open) {
     return (

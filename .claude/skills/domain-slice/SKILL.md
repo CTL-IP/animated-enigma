@@ -92,7 +92,7 @@ Rules that hold throughout:
 - **`friendlyDbError(error)`** maps constraint and trigger messages to something
   a person can act on. Match on the constraint name.
 - Two signatures, used consistently: `(_prev: FormState, formData: FormData)` for
-  forms with `useFormState`, and `(formData: FormData)` for one-tap buttons.
+  forms with `useActionState`, and `(formData: FormData)` for one-tap buttons.
 - `revalidatePath` the list route and the project route after every write.
 - Return the project id **out of the transaction** rather than assigning to an
   outer `let` — TypeScript won't narrow across the closure.
@@ -117,7 +117,7 @@ render cost or margin without checking it.
 ## 5. Components
 
 `src/components/<domain>/`. Server components by default; `'use client'` only for
-forms with `useFormState` and for local open/closed state.
+forms with `useActionState` and for local open/closed state.
 
 Mobile-first is not decoration — this is used one-handed on a jobsite:
 - The common action is **one tap**, no navigation. Status changes, checklist

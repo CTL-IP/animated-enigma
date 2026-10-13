@@ -1,6 +1,6 @@
 'use client';
 
-import { useFormState } from 'react-dom';
+import { useActionState } from 'react';
 import { CheckCircle2, ThumbsUp, ThumbsDown } from 'lucide-react';
 import { respondToProposal } from '@/lib/proposals/actions';
 import type { FormState } from '@/lib/auth/actions';
@@ -25,7 +25,7 @@ export function RespondForm({
   orgName: string;
   disclosure: string;
 }) {
-  const [state, formAction] = useFormState(respondToProposal, initial);
+  const [state, formAction] = useActionState(respondToProposal, initial);
 
   if (state.message) {
     const accepted = state.message === 'accepted';

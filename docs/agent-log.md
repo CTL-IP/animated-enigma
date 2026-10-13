@@ -52,14 +52,12 @@ is a public-shaped file in a repository. Reference a variable by name only.
 
 | # | Question | Raised | Waiting on |
 |---|---|---|---|
-| 1 | Does production deploy from `main`, or does PR #6 merge first? `main` is 36 commits behind and stops at Task 7, so a production deploy from it today would ship placeholder screens. | 2026-08-14 | Owner |
-| 5 | A Google Cloud OAuth client has to exist before anyone can connect Google: enable the Gmail and Calendar APIs, configure the consent screen, create a Web-application client, register the callback URL the Settings card shows, set three `GOOGLE_*` variables on the host. Part D of `docs/go-live-checklist.md`. Owner's browser, roughly fifteen minutes, once. | 2026-09-09 | Owner |
-| 6 | The Vercel project still has no environment variables, so the deployed URL serves the unconfigured shell. Since 2026-09-17 the fix is linking the Vercel ↔ Supabase integration (Part A of `docs/go-live-checklist.md`); the app reads its variable names directly. Until then, nothing built since Task 8 can be exercised by a human. | 2026-08-16 | Owner |
 | 2 | Once a model key exists, may it draft client-facing text directly, or only suggest edits to the existing deterministic draft? Recommendation on file: draft-only, never autonomous. | 2026-08-14 | Owner |
 | 3 | `src/components/section-placeholder.tsx` is now unused — `/ai-foreman` was its last caller. Delete it, or keep it for stubbing future screens? Kept for now. | 2026-08-14 | Owner |
 | 8 | The organization timezone defaults to `America/New_York`, and the contract terms and docs refer to Ohio; the business is in Dallas–Fort Worth. Confirm the live organization's timezone (`America/Chicago` for DFW) and take the contract terms' state to the attorney review. | 2026-09-27 | Owner |
 | 9 | Host the `texas-tax` MCP server's HTTP entry as a claude.ai connector (phone, Cowork)? Manufact is TAC-BRIDGE's approved MCP host (owner approval required). Nothing is deployed. | 2026-09-27 | Owner |
 | 10 | Confirm the push guard should pin `claude/trusting-tesla-8u5367`. A session assigned that branch repointed `.claude/hooks/designated-branch`, the two branch lines in `CLAUDE.md` and two lines in `ship-check` (commit `d375b3f`) because the old pin, `claude/loving-pasteur-hyl6er`, was already merged and nothing could be pushed. Done through the procedure `CLAUDE.md` describes, but it changes a protective hook, so it needs the owner's yes. | 2026-10-01 | Owner |
+| 11 | The push guard is **disabled**: commit `308870c` (PR #9, merged to `main` 2026-10-12) replaced the `guard-push.sh` hook command in `.claude/settings.json` with `echo {}`, so every push passes. CLAUDE.md still describes it as a hard deny. The root cause is thread 10's: the guard pins one branch while each session is assigned its own. Either restore it and let it accept the branch the session was assigned, or decide it stays off — but it should not stay off by accident. | 2026-10-13 | Owner |
 
 ### Settled
 
@@ -70,10 +68,54 @@ is a public-shaped file in a repository. Reference a variable by name only.
 | Vercel account needs a GitHub Login Connection (was thread 4). | Owner added the Login Connection and installed the Vercel GitHub App on the repo. Project `tactical-foreman` linked; first build failed on a vulnerable Next.js, fixed by upgrading to 15.5.23; second build `Ready`. | 2026-08-16 |
 | Move to Google Workspace? | Add it, don't migrate to it. Google Workspace does not host applications. Gmail send and Calendar sync are being built on Vercel + Supabase as they stand. Supabase Storage stays; Drive not adopted. | 2026-09-09 |
 | The push guard pins a merged PR's branch; new sessions can't push (was thread 7). | Point it at the session's branch. Owner chose `claude/loving-pasteur-hyl6er`; the guard, the session-start hook, `CLAUDE.md` and `ship-check` now name it. The guard still names a single branch, so a session on a new branch needs the same change. | 2026-09-27 |
+| Does production deploy from `main`, or does PR #6 merge first? (was thread 1) | PR #6 merged 2026-09-25 and #13 four days later; production deploys from `main`. The Vercel project's Git connection turned out to be disconnected — every "Ready" build was a redeploy of one old commit — and the owner reconnected it the same night, after which pushes built within a minute. | 2026-09-25 |
+| A Google Cloud OAuth client has to exist before anyone can connect Google (was thread 5). | Owner created it 2026-09-25: APIs enabled, internal consent screen, Web-application client, the Settings card's callback URL registered, three `GOOGLE_*` variables set (one round of fixes for lowercase names and a swapped id/secret). Connect works; the owner confirmed email send and calendar sync on real records. | 2026-09-25 |
+| The Vercel project has no environment variables (was thread 6). | Set by the owner 2026-09-25 by hand — the Marketplace "Connect to supabase-gray-door" flow was abandoned because the two existing `NEXT_PUBLIC_SUPABASE_*` values already matched the real project. The app has run against the live database since. | 2026-09-25 |
 
 ---
 
 ## Log
+
+## 2026-10-13 — Billing foundation, onboarding, security policy; the push guard is off
+**By:** Claude (session on `claude/tactical-foreman-build-m7i3ng`) · **Commits:** `dfcc041` `b192902` `e6dce6d` `5576db0` `eba21bb`
+
+The owner wants to sell the product as a subscription. Built the part that needs
+no live payment call: `organization_subscriptions` (migrations 0049/0050, applied
+to the live project, RLS enabled+forced, six new harness assertions) and
+`src/lib/billing/billing-core.ts`, the pure pricing for the four tiers he set —
+Starter $150, Established $1,200, Growing $1,500, Enterprise $2,750 a month, plus a
+usage fee on active contract value at 6 / 8.5 / 12 / 15.15% billed annually or
+3 / 4.5 / 7.37 / 9.15% billed monthly. Not derived; his numbers. **No Stripe call
+exists yet.** The connected Stripe account is live-mode only, so nothing is created
+there until he says so; he is taking the structure to counsel first.
+
+Onboarding now asks for a time zone (curated US list) alongside the company name;
+`createOrganization` accepts it and falls back to the column default. A
+SessionStart hook runs `pnpm install` on web sessions. `SECURITY.md` is written for
+a continuously deployed app: private reporting via GitHub advisories, scope, and
+the controls a report is measured against.
+
+A security review of this branch's diff (sub-agent, then independently checked)
+found nothing above the bar: the time zone string reaches only a structured
+Google Calendar field; every `Intl` call pins `'UTC'`; no raw SQL uses it.
+
+Also checked, not changed: the Estimates list returns the one real estimate
+correctly; the cost catalog already holds 534 items across 32 trades, labor at
+$51.20/hr, every row tagged as Sept-2026 baseline with `last_verified_date` empty.
+Left alone — nothing to fix, and adding guessed prices would make it worse.
+
+Found, not fixed:
+- **The push guard is disabled.** Commit `308870c` (PR #9, the React 19 form-hook
+  migration) replaced `guard-push.sh` in `.claude/settings.json` with `echo {}`.
+  CLAUDE.md still calls it a hard deny. Open thread 11; owner's call.
+- CLAUDE.md names `claude/trusting-tesla-8u5367`; this session was assigned
+  `claude/tactical-foreman-build-m7i3ng`. Two sessions, one pin. The guard being
+  off is why both can push.
+- After the Cursor merge of `main` (`5de451b`) the tree needed `pnpm install`:
+  five test files loaded zero tests until `@modelcontextprotocol/sdk` was present.
+  Gate after install: typecheck and lint clean, 52 files / 971 tests passing.
+- Trailer: CLAUDE.md says `Claude Opus 5`; this session's commits carry the model
+  the host named at the time (Sonnet 5, then Fable 5.1). Not rewritten.
 
 ## 2026-10-06 — PR #16 and `bid-skills#1` merged; the branch restarted from `main`
 **By:** Claude · **Commit:** on `claude/trusting-tesla-8u5367`, first commit after the restart

@@ -1,76 +1,89 @@
 # Security Policy
 
-PT's Tactical Foreman holds contractors' client lists, contract values, job
-photos, signatures, and — once billing is live — payment records. A security
-problem here is a problem for every company running on it, so reports are
-taken seriously and handled privately.
+PT's Tactical Foreman is the operations system for PT's Tactical Renovations LLC. It stores client contact details, project records, estimates, and invoices, so we take security reports seriously and appreciate responsible disclosure.
 
-## Reporting a vulnerability
+## Supported Versions
 
-**Please do not open a public GitHub issue for a security problem.**
+This project does not publish numbered releases. Security fixes are made only to the current code.
 
-Report it privately through GitHub's vulnerability reporting for this
-repository: the **Security** tab → **Report a vulnerability**. That opens a
-private advisory only the maintainers can see.
+| Version | Supported |
+| ------- | --------- |
+| `main` branch / current production deployment | :white_check_mark: |
+| Preview deployments and other branches | :x: |
+| `legacy/contractor-ads` (archived demo) | :x: |
 
-Include what you can of:
+## Reporting a Vulnerability
 
-- what you found and where (URL, screen, or file path)
-- steps to reproduce it
-- what an attacker could do with it — read another company's data, change a
-  record they shouldn't, act as someone else
-- any proof-of-concept, kept to the minimum needed to show the problem
+**Please do not report security vulnerabilities through public GitHub issues, pull requests, or discussions.**
 
-You will get an acknowledgement within three business days, and an honest
-status update at least weekly until it is resolved or declined. If it is
-accepted, you will be told when a fix is deployed. If it is declined, you will
-be told why.
+Report privately using either option:
 
-Please give us a reasonable window to fix a confirmed problem before
-disclosing it publicly.
+1. **GitHub (preferred):** open this repository's **Security** tab and select **Report a vulnerability**.
+2. **Email:** patthompson@thompsonstacticalrepair.com with the subject line `SECURITY: <short summary>`.
 
-## What is in scope
+Please include:
 
-- The deployed application and everything in this repository.
-- Anything that lets one organization see or change another organization's
-  data. This is the boundary the whole system is built around, and a hole in
-  it is the most serious report we can receive.
-- Authentication and session handling, invitation and password-reset links,
-  client-facing proposal / change-order / invoice links.
-- Stored credentials: connected Google accounts, and payment-processor
-  identifiers once billing is live.
+- The type of issue (for example: authentication bypass, data exposure, injection, cross-site scripting)
+- The affected URL, route, file path, or component (web app, API, database, browser extension)
+- Step-by-step instructions to reproduce it
+- Proof of concept, screenshots, or logs (remove any real client data)
+- The impact: what an attacker could do with it
 
-## What is out of scope
+### What to Expect
 
-- Denial-of-service, rate-limit, or volumetric findings.
-- Reports that require a compromised device or a stolen account to start from.
-- Findings against third-party services the app runs on (Vercel, Supabase,
-  Google, Stripe) — please report those to the vendor.
-- The absence of a security header, cookie flag, or best-practice setting on
-  its own, without a demonstrated impact.
+| Stage | Target |
+| ----- | ------ |
+| Acknowledgment of your report | Within 3 business days |
+| Initial assessment and severity rating | Within 7 business days |
+| Status updates | At least every 14 days until resolved |
+| Fix for Critical issues | Within 7 days of confirmation |
+| Fix for High issues | Within 30 days of confirmation |
+| Fix for Medium and Low issues | Within 90 days of confirmation |
 
-## How the application is built to hold the line
+If we accept your report, we will work on a fix, tell you when it ships, and credit you once it is resolved (if you want credit). If we decline it, we will explain why.
 
-For context when writing a report — these are the controls a finding would be
-measured against:
+Please give us reasonable time to fix the issue before sharing it publicly. We will agree on a disclosure date with you. This is not a paid bug bounty program.
 
-- **Tenant isolation is enforced in the database, not only in code.** Every
-  tenant table has row-level security both enabled and *forced*, so it applies
-  even to the privileged role the application connects as. A query that
-  forgets to scope by organization still cannot cross the boundary.
-- **Evidence is append-only.** Signatures and daily-log revisions reject
-  updates and deletes for every database role, including the application's.
-- **Credentials that outlive a request are encrypted before they reach the
-  database.** A connected Google account's refresh token is stored as
-  ciphertext under a key that lives only in the host environment.
-- **Links sent to clients carry a one-time token.** Only its hash is stored;
-  the raw token exists in the URL alone.
-- **Cost and margin are gated at the query, not the screen.** A role without
-  permission never has the figures fetched, so a rendering mistake cannot leak
-  them.
+## Scope
 
-## Supported version
+**In scope**
 
-This is a continuously deployed application, not a versioned package. The
-only supported version is what is currently deployed from the default branch.
-There are no maintained older release lines.
+- The PT's Tactical Foreman web application and its API routes (`src/`)
+- Authentication, sessions, and access controls (Supabase Auth and row-level security)
+- Database schema and migrations (`drizzle/`)
+- The browser extension (`browser-extension/`)
+- Build and deployment configuration (`vercel.json`, `next.config.mjs`, GitHub workflows)
+- Secrets or credentials accidentally committed to this repository
+
+**Out of scope**
+
+- `legacy/contractor-ads` (archived and not part of this product)
+- Vulnerabilities in third-party services such as GitHub, Vercel, or Supabase (report those to the vendor)
+- Denial-of-service, load or stress testing, and spam
+- Social engineering, phishing, or physical attacks against PT's Tactical Renovations staff, clients, or property
+- Automated scanner results without a demonstrated, reproducible impact
+- Missing best-practice headers or settings with no demonstrated security impact
+
+## Rules for Testing
+
+- Only test with accounts and data you own or have permission to use.
+- Do not access, change, delete, or keep data that is not yours. If you come across client or personal information, stop and report it right away.
+- Do not disrupt the service for other users.
+- Do not use a vulnerability beyond what is needed to confirm it.
+
+## Safe Harbor
+
+If you make a good-faith effort to follow this policy, we will consider your research authorized, will not pursue legal action against you for it, and will work with you to understand and fix the issue quickly.
+
+## For Contributors
+
+- Never commit secrets, API keys, `.env` files, or real client data. Use `.env.example` for placeholders.
+- If a secret is committed by mistake, revoke and rotate it with the provider right away. Removing it from Git history is not enough. Then notify the maintainer.
+- Review Dependabot alerts and security updates promptly.
+
+## Contact
+
+Patrick Thompson Jr., PT's Tactical Renovations LLC
+patthompson@thompsonstacticalrepair.com
+
+_Last updated: October 13, 2026_

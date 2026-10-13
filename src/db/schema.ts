@@ -1837,6 +1837,60 @@ export const calendarEvents = pgTable(
   ],
 );
 
+export const billingTierEnum = pgEnum('billing_tier', [
+  'starter',
+  'established',
+  'growing',
+  'enterprise',
+]);
+
+export const billingCadenceEnum = pgEnum('billing_cadence', ['annual', 'monthly_forever']);
+
+export const subscriptionStatusEnum = pgEnum('subscription_status', [
+  'pending',
+  'trialing',
+  'active',
+  'past_due',
+  'canceled',
+]);
+
+/**
+ * What an organization pays to run Tactical Foreman itself — distinct from
+ * `invoices`, which is what a contractor bills *their* client. One row per
+ * org: the tier and cadence are a choice the org makes, not a history: a
+ * change replaces this row rather than appending a new one, so "what are they
+ * on right now" is always a single lookup, never a derived "latest version".
+ *
+ * `status` starts `pending` and is never set by the app directly — only a
+ * Stripe webhook moves it, so the record reflects what Stripe actually
+ * collected rather than what the app hoped would happen. `stripe_customer_id`
+ * and `stripe_subscription_id` stay null until that first webhook arrives,
+ * which is also how the UI tells "not billed yet" from "billed and current".
+ */
+export const organizationSubscriptions = pgTable(
+  'organization_subscriptions',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    organizationId: uuid('organization_id')
+      .notNull()
+      .references(() => organizations.id, { onDelete: 'restrict' }),
+    tier: billingTierEnum('tier').notNull(),
+    cadence: billingCadenceEnum('cadence').notNull(),
+    status: subscriptionStatusEnum('status').notNull().default('pending'),
+    stripeCustomerId: text('stripe_customer_id'),
+    stripeSubscriptionId: text('stripe_subscription_id'),
+    currentPeriodStart: timestamp('current_period_start', { withTimezone: true }),
+    currentPeriodEnd: timestamp('current_period_end', { withTimezone: true }),
+    createdBy: uuid('created_by').references(() => users.id),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex('organization_subscriptions_org_idx').on(table.organizationId),
+    uniqueIndex('organization_subscriptions_stripe_sub_idx').on(table.stripeSubscriptionId),
+  ],
+);
+
 export type Client = typeof clients.$inferSelect;
 export type ClientContact = typeof clientContacts.$inferSelect;
 export type Property = typeof properties.$inferSelect;
@@ -1898,3 +1952,5 @@ export type EmailLogEntry = typeof emailLog.$inferSelect;
 export type NewEmailLogEntry = typeof emailLog.$inferInsert;
 export type CalendarEventMirror = typeof calendarEvents.$inferSelect;
 export type NewCalendarEventMirror = typeof calendarEvents.$inferInsert;
+export type OrganizationSubscription = typeof organizationSubscriptions.$inferSelect;
+export type NewOrganizationSubscription = typeof organizationSubscriptions.$inferInsert;

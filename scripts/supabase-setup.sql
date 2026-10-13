@@ -2948,3 +2948,67 @@ create policy calendar_events_admin_read on calendar_events
       or has_role(organization_id, 'office_manager')
     )
   );
+
+-- ═══ Part 30 — platform billing ═══
+-- What an organization pays to run Tactical Foreman itself — distinct from
+-- `invoices`, which is what a contractor bills their own client. One row per
+-- org: a tier/cadence change replaces the row rather than appending one, so
+-- "what are they on right now" stays a single lookup. `status` starts
+-- `pending` and only a Stripe webhook moves it from there, never the app
+-- directly, so the record reflects what Stripe actually collected.
+
+do $$ begin
+  create type billing_tier as enum ('starter','established','growing','enterprise');
+exception when duplicate_object then null; end $$;
+
+do $$ begin
+  create type billing_cadence as enum ('annual','monthly_forever');
+exception when duplicate_object then null; end $$;
+
+do $$ begin
+  create type subscription_status as enum ('pending','trialing','active','past_due','canceled');
+exception when duplicate_object then null; end $$;
+
+create table if not exists organization_subscriptions (
+  id uuid primary key default gen_random_uuid() not null,
+  organization_id uuid not null,
+  tier billing_tier not null,
+  cadence billing_cadence not null,
+  status subscription_status default 'pending' not null,
+  stripe_customer_id text,
+  stripe_subscription_id text,
+  current_period_start timestamptz,
+  current_period_end timestamptz,
+  created_by uuid,
+  created_at timestamptz default now() not null,
+  updated_at timestamptz default now() not null
+);
+
+do $$ begin
+  alter table organization_subscriptions
+    add constraint organization_subscriptions_organization_id_organizations_id_fk
+    foreign key (organization_id) references organizations(id) on delete restrict;
+exception when duplicate_object then null; end $$;
+
+do $$ begin
+  alter table organization_subscriptions
+    add constraint organization_subscriptions_created_by_users_id_fk
+    foreign key (created_by) references users(id);
+exception when duplicate_object then null; end $$;
+
+create unique index if not exists organization_subscriptions_org_idx
+  on organization_subscriptions (organization_id);
+create unique index if not exists organization_subscriptions_stripe_sub_idx
+  on organization_subscriptions (stripe_subscription_id);
+
+drop trigger if exists organization_subscriptions_set_updated_at on organization_subscriptions;
+create trigger organization_subscriptions_set_updated_at before update on organization_subscriptions
+  for each row execute function set_updated_at();
+
+alter table organization_subscriptions enable row level security;
+alter table organization_subscriptions force row level security;
+
+drop policy if exists organization_subscriptions_tenant on organization_subscriptions;
+create policy organization_subscriptions_tenant on organization_subscriptions
+  using (organization_id = current_org() and is_member_of(organization_id))
+  with check (organization_id = current_org() and is_member_of(organization_id));

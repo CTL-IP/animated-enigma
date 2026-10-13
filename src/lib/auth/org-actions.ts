@@ -49,12 +49,20 @@ export async function createOrganization(_prev: FormState, formData: FormData): 
   if (!name.success) return { error: name.error.issues[0]?.message ?? 'Enter a company name.' };
   if (!ctx.dbAvailable) return { error: 'Database is not configured yet — see .env.example.' };
 
+  // Falls back to the column's own default rather than rejecting the form —
+  // the picker always sends a value, but a bare API call shouldn't have to.
+  const timezoneField = z.string().trim().min(1).max(64).safeParse(formData.get('timezone'));
+
   const db = getDb();
   try {
     const orgId = await db.transaction(async (tx) => {
       const [org] = await tx
         .insert(schema.organizations)
-        .values({ name: name.data, slug: slugify(name.data) })
+        .values({
+          name: name.data,
+          slug: slugify(name.data),
+          ...(timezoneField.success ? { timezone: timezoneField.data } : {}),
+        })
         .returning({ id: schema.organizations.id });
       if (!org) throw new Error('insert returned no row');
       await tx.insert(schema.organizationMembers).values({

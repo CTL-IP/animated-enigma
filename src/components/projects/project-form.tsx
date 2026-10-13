@@ -1,7 +1,6 @@
 'use client';
 
-import { useFormState } from 'react-dom';
-import { useState } from 'react';
+import { useActionState, useState } from 'react';
 import Link from 'next/link';
 import { createProject, updateProject } from '@/lib/projects/actions';
 import type { FormState } from '@/lib/auth/actions';
@@ -96,7 +95,7 @@ export function ProjectForm({
   /** In edit mode the client can't be changed (projects don't move clients). */
   lockClient?: boolean;
 }) {
-  const [state, formAction] = useFormState(
+  const [state, formAction] = useActionState(
     mode === 'create' ? createProject : updateProject,
     initial,
   );

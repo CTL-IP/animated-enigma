@@ -1,6 +1,6 @@
 'use client';
 
-import { useFormState } from 'react-dom';
+import { useActionState } from 'react';
 import Link from 'next/link';
 import { createCatalogItem, updateCatalogItem } from '@/lib/catalog/actions';
 import type { FormState } from '@/lib/auth/actions';
@@ -56,7 +56,7 @@ export function CatalogForm({
   mode: 'create' | 'edit';
   values?: CatalogFormValues;
 }) {
-  const [state, formAction] = useFormState(
+  const [state, formAction] = useActionState(
     mode === 'create' ? createCatalogItem : updateCatalogItem,
     initial,
   );

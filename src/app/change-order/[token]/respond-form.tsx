@@ -1,6 +1,6 @@
 'use client';
 
-import { useFormState } from 'react-dom';
+import { useActionState } from 'react';
 import { ThumbsUp, ThumbsDown, CheckCircle2, XCircle } from 'lucide-react';
 import { respondToChangeOrder } from '@/lib/change-orders/actions';
 import { Input } from '@/components/ui/input';
@@ -23,7 +23,7 @@ export function ChangeOrderRespondForm({
   orgName: string;
   disclosure: string;
 }) {
-  const [state, formAction] = useFormState(respondToChangeOrder, initial);
+  const [state, formAction] = useActionState(respondToChangeOrder, initial);
 
   if (state.message === 'approved') {
     return (

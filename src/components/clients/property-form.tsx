@@ -1,6 +1,6 @@
 'use client';
 
-import { useFormState } from 'react-dom';
+import { useActionState } from 'react';
 import Link from 'next/link';
 import {
   createProperty,
@@ -44,7 +44,7 @@ export function PropertyForm({
   values?: PropertyFormValues;
   mode: 'create' | 'edit';
 }) {
-  const [state, formAction] = useFormState(
+  const [state, formAction] = useActionState(
     mode === 'create' ? createProperty : updateProperty,
     initial,
   );
@@ -185,7 +185,7 @@ export function DeletePropertyButton({
   clientId: string;
   propertyId: string;
 }) {
-  const [state, formAction] = useFormState(deleteProperty, initial);
+  const [state, formAction] = useActionState(deleteProperty, initial);
   return (
     <form action={formAction} className="space-y-2">
       <FormNotice error={state.error} />

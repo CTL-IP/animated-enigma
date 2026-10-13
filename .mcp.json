@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "texas-tax": {
+      "type": "stdio",
+      "command": "pnpm",
+      "args": ["exec", "tsx", "src/mcp/texas-tax/stdio.ts"]
+    }
+  }
+}

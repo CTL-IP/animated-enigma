@@ -22,10 +22,13 @@ import {
 } from '@/lib/invoices/invoices-core';
 import { toNum } from '@/lib/catalog/catalog-core';
 import { lastEmailFor, recipientForClient } from '@/lib/email/queries';
+import { jobTaxContext } from '@/lib/texas-tax/queries';
+import { jobTaxChecks } from '@/lib/texas-tax/job-checks';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { InvoiceStatusBadge } from '@/components/invoices/invoice-status-badge';
 import { EmailToClient } from '@/components/email/email-to-client';
+import { TaxCheckCard } from '@/components/texas-tax/tax-check-card';
 import { InvoiceForm } from './invoice-form';
 import { PaymentForm } from './payment-form';
 
@@ -62,9 +65,11 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
   // Only an issued invoice is worth emailing: its amounts are locked. A draft's
   // can still change, so the Status card's "Issue invoice" stays the gate.
   const maySend = mayWrite && !editable && stored !== 'void';
-  const [recipient, lastSent] = await Promise.all([
+  const [recipient, lastSent, taxContext] = await Promise.all([
     maySend ? recipientForClient(orgId, invoice.clientId) : Promise.resolve(null),
     maySend ? lastEmailFor(orgId, 'invoice', invoice.id) : Promise.resolve(null),
+    // A voided invoice bills nothing, so there is nothing to check.
+    stored !== 'void' ? jobTaxContext(orgId, invoice.projectId) : Promise.resolve(null),
   ]);
 
   const lines: InvoiceLineInput[] = row.lines.map((l) => ({
@@ -73,6 +78,20 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
     unitPrice: l.unitPrice,
     taxable: l.taxable,
   }));
+
+  const taxChecks = taxContext
+    ? jobTaxChecks({
+        document: 'invoice',
+        ...taxContext,
+        taxRatePercent: toNum(invoice.taxRate),
+        lines: lines.map((l) => ({
+          description: l.description,
+          taxable: l.taxable !== false,
+          amount: lineAmount(l),
+          isLabor: null,
+        })),
+      })
+    : [];
 
   return (
     <div className="mx-auto max-w-3xl space-y-5">
@@ -234,6 +253,8 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
           )}
         </CardContent>
       </Card>
+
+      <TaxCheckCard checks={taxChecks} />
 
       {!editable ? (
         <Card>

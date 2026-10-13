@@ -1,7 +1,6 @@
 'use client';
 
-import { useFormState } from 'react-dom';
-import { useMemo } from 'react';
+import { useActionState, useMemo } from 'react';
 import { CheckCircle2 } from 'lucide-react';
 import { submitPublicIntake, type IntakeFormState } from '@/lib/intake/actions';
 import { TIMELINE_OPTIONS, BUDGET_RANGES, HEARD_ABOUT_OPTIONS } from '@/lib/intake/intake-core';
@@ -31,7 +30,7 @@ const PROJECT_TYPES = [
 const initial: IntakeFormState = {};
 
 export function PublicIntakeForm({ orgSlug, orgName }: { orgSlug: string; orgName: string }) {
-  const [state, formAction] = useFormState(submitPublicIntake, initial);
+  const [state, formAction] = useActionState(submitPublicIntake, initial);
   // Stable render timestamp for the too-fast-submit spam check.
   const startedAt = useMemo(() => Date.now().toString(), []);
 

@@ -1,13 +1,15 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Plus, Trash2, Pencil } from 'lucide-react';
 import { addCatalogLine, addLine, updateLine, deleteLine } from '@/lib/estimates/actions';
 import {
   LINE_TYPES,
   LINE_TYPE_LABELS,
   computeLineCost,
+  defaultTaxable,
   formatMoney,
+  isLineType,
   type LineType,
 } from '@/lib/estimates/estimate-core';
 import { UNITS, UNIT_ABBR, UNIT_LABELS, formatCost, type Unit } from '@/lib/catalog/catalog-core';
@@ -154,16 +156,7 @@ function LineRow({
                 className="w-20"
               />
             </FieldMini>
-            <label className="flex items-center gap-1.5 text-xs">
-              <input
-                type="checkbox"
-                name="taxable"
-                value="true"
-                defaultChecked={line.taxable}
-                className="h-4 w-4"
-              />
-              Taxable
-            </label>
+            <TaxableField defaultChecked={line.taxable} />
             <div className="flex items-center gap-1.5">
               <Button type="submit" size="sm">
                 Save
@@ -280,8 +273,20 @@ function CatalogAdd({
 }
 
 function ManualAdd({ projectId, versionId }: { projectId: string; versionId: string }) {
+  const startType: LineType = 'material';
+  const taxableBox = useRef<HTMLInputElement>(null);
+  // The box follows the type until the person ticks or unticks it. Cleared on
+  // submit, because after an add React resets the form to the start type.
+  const taxableTouched = useRef(false);
+
   return (
-    <form action={addLine} className="space-y-2 rounded-md border p-3">
+    <form
+      action={addLine}
+      onSubmit={() => {
+        taxableTouched.current = false;
+      }}
+      className="space-y-2 rounded-md border p-3"
+    >
       <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
         Add a line
       </p>
@@ -289,7 +294,18 @@ function ManualAdd({ projectId, versionId }: { projectId: string; versionId: str
       <input type="hidden" name="estimateVersionId" value={versionId} />
       <Input name="description" placeholder="Description" required />
       <div className="flex flex-wrap items-end gap-2">
-        <Select name="lineType" defaultValue="material" aria-label="Type" className="w-auto">
+        <Select
+          name="lineType"
+          defaultValue={startType}
+          aria-label="Type"
+          className="w-auto"
+          onChange={(e) => {
+            const type = e.target.value;
+            if (taxableBox.current && !taxableTouched.current && isLineType(type)) {
+              taxableBox.current.checked = defaultTaxable(type);
+            }
+          }}
+        >
           {LINE_TYPES.map((t) => (
             <option key={t} value={t}>
               {LINE_TYPE_LABELS[t]}
@@ -321,12 +337,58 @@ function ManualAdd({ projectId, versionId }: { projectId: string; versionId: str
           className="w-24"
           aria-label="Unit cost"
         />
+        <TaxableField
+          inputRef={taxableBox}
+          defaultChecked={defaultTaxable(startType)}
+          onChange={() => {
+            taxableTouched.current = true;
+          }}
+        />
         <Button type="submit" size="sm">
           <Plus className="h-4 w-4" />
           Add
         </Button>
       </div>
     </form>
+  );
+}
+
+/**
+ * The Taxable box. An unticked checkbox sends nothing, so a hidden `false` goes
+ * first and a ticked box adds `true` after it. The actions read the form with
+ * `Object.fromEntries`, which keeps the last value; `formData.get` keeps the
+ * first, and would read every box as unticked.
+ *
+ * The box itself is the value, not a controlled box feeding a hidden input as
+ * the invoice form does. After an action React resets the form's fields but
+ * leaves component state alone, so a controlled box can end up showing one
+ * thing and sending another.
+ */
+function TaxableField({
+  defaultChecked,
+  inputRef,
+  onChange,
+}: {
+  defaultChecked: boolean;
+  inputRef?: React.Ref<HTMLInputElement>;
+  onChange?: () => void;
+}) {
+  return (
+    <>
+      <input type="hidden" name="taxable" value="false" />
+      <label className="flex h-10 cursor-pointer items-center gap-2 rounded-md border border-input bg-background px-3 text-sm">
+        <input
+          ref={inputRef}
+          type="checkbox"
+          name="taxable"
+          value="true"
+          defaultChecked={defaultChecked}
+          onChange={onChange}
+          className="h-4 w-4 accent-primary"
+        />
+        Taxable
+      </label>
+    </>
   );
 }
 

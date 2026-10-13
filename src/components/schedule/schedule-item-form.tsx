@@ -1,7 +1,6 @@
 'use client';
 
-import { useFormState } from 'react-dom';
-import { useState } from 'react';
+import { useActionState, useState } from 'react';
 import { Plus, Trash2 } from 'lucide-react';
 import { createScheduleItem, deleteScheduleItem, updateScheduleItem } from '@/lib/schedule/actions';
 import {
@@ -59,7 +58,7 @@ export function ScheduleItemForm({
 }) {
   const editing = Boolean(item);
   const [open, setOpen] = useState(editing);
-  const [state, formAction] = useFormState(
+  const [state, formAction] = useActionState(
     editing ? updateScheduleItem : createScheduleItem,
     initial,
   );

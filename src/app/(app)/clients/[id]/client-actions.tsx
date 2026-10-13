@@ -1,7 +1,6 @@
 'use client';
 
-import { useState } from 'react';
-import { useFormState } from 'react-dom';
+import { useActionState, useState } from 'react';
 import { Plus } from 'lucide-react';
 import {
   addContact,
@@ -20,7 +19,7 @@ const initial: ClientFormState = {};
 /** Collapsible "add contact" form for the client's people list. */
 export function AddContactForm({ clientId }: { clientId: string }) {
   const [open, setOpen] = useState(false);
-  const [state, formAction] = useFormState(addContact, initial);
+  const [state, formAction] = useActionState(addContact, initial);
 
   if (!open) {
     return (

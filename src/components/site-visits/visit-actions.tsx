@@ -1,7 +1,6 @@
 'use client';
 
-import { useState } from 'react';
-import { useFormState } from 'react-dom';
+import { useActionState, useState } from 'react';
 import {
   completeVisit,
   cancelVisit,
@@ -40,7 +39,7 @@ export function VisitActions({
   members: Member[];
 }) {
   const [panel, setPanel] = useState<'none' | 'complete' | 'reschedule'>('none');
-  const [completeState, completeAction] = useFormState(completeVisit, initial);
+  const [completeState, completeAction] = useActionState(completeVisit, initial);
 
   if (completeState.message && panel === 'complete') setPanel('none');
 

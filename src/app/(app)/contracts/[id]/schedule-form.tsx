@@ -1,7 +1,6 @@
 'use client';
 
-import { useState } from 'react';
-import { useFormState } from 'react-dom';
+import { useActionState, useState } from 'react';
 import { Plus, Trash2 } from 'lucide-react';
 import { savePaymentSchedule } from '@/lib/contracts/actions';
 import {
@@ -42,7 +41,7 @@ export function ScheduleForm({
   initialStructure: PaymentStructure;
   initialMilestones: MilestoneInput[];
 }) {
-  const [state, formAction] = useFormState(
+  const [state, formAction] = useActionState(
     savePaymentSchedule,
     {} as { error?: string; message?: string },
   );

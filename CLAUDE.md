@@ -29,9 +29,10 @@ These come from Patrick and are not negotiable.
 
 ### Git
 
-- Branch: **`claude/tactical-foreman-build-m7i3ng`**. Never push elsewhere without
-  explicit permission.
-- `git push -u origin claude/tactical-foreman-build-m7i3ng`, retrying up to four
+- Branch: **`claude/trusting-tesla-8u5367`**. Never push elsewhere without
+  explicit permission. The hooks read it from `.claude/hooks/designated-branch`;
+  when Patrick names a new branch, that file and this line change together.
+- `git push -u origin claude/trusting-tesla-8u5367`, retrying up to four
   times on network failure with 2s/4s/8s/16s backoff.
 - Commit trailer, every time:
   ```
@@ -40,8 +41,12 @@ These come from Patrick and are not negotiable.
   ```
 - **Never put a model identifier in any repo artifact** — not commit messages
   beyond that trailer, not PR titles or bodies, not code comments.
-- Tracking PR is **#6**. Keep its description accurate; a body that says
-  "Tasks 9–19" when the branch carries 29 is worse than no body.
+- The repository moved to the **`CTL-IP`** organization on 2026-10-06 and is now
+  `CTL-IP/animated-enigma`; the old `plthompsonjr-IAM` URL redirects. Start new sessions
+  from the new name. The branch rule above is unchanged.
+- Tracking PR: the open PR from this branch into `main` (#16 merged 2026-10-06, #15 before it;
+  the branch was restarted from `main` the same day). Keep its description accurate; a body
+  that says "Tasks 9–19" when the branch carries 29 is worse than no body.
 
 ---
 
@@ -92,13 +97,17 @@ vendor swap is configuration, not a rewrite.
 
 ## Skills
 
-Three skills in `.claude/skills/` cover the recurring procedures. Use them.
+Four skills in `.claude/skills/` cover the recurring procedures. Use them. The bid-writing skills
+(`rfp-response`, `gov-contract-review`, `hud-pha-procurement`) live in their own repository,
+[`CTL-IP/bid-skills`](https://github.com/CTL-IP/bid-skills), not here: they are not about this
+application. Its `install.sh` links them into Claude Code, Codex and Cursor at user level.
 
 | Skill | When |
 |---|---|
 | `domain-slice` | Starting a numbered task or adding anything under `src/lib/` |
 | `db-change` | Any edit to `schema.ts`, any migration, constraint, trigger, policy |
 | `ship-check` | Before every commit, and before saying anything is done |
+| `texas-tax` | Any Texas tax question — a job's treatment, a Comptroller publication, a due date, a penalty, franchise tax, vehicle rental tax — and any work in `src/lib/texas-tax` or `src/mcp/texas-tax` |
 
 ## Hooks
 
@@ -109,7 +118,7 @@ otherwise held only by my remembering them.
 |---|---|---|
 | `verify-evidence.sh` | Stop | Runs typecheck, lint, tests (and the RLS suite when SQL changed). **Blocks the turn on failure.** |
 | `check-schema-completeness.sh` | Stop | Names which of the four schema follow-through steps are still missing |
-| `guard-push.sh` | PreToolUse / Bash | **Denies** any push to a branch other than the designated one, and any force-push |
+| `guard-push.sh` | PreToolUse / Bash | **Denies** any push to a branch other than the one in `designated-branch`, and any force-push |
 | `session-state.sh` | SessionStart | Reports branch, working state, migration count, and what's blocked on Patrick |
 
 `verify-evidence.sh` exists because rule 6 is the one that matters most, and
@@ -127,7 +136,7 @@ blocked and ask him to confirm — don't work around it.
 ## Stack
 
 - **Next.js 15.1.6** App Router, **React 18.3.1**, TypeScript strict
-- Server Components by default; Server Actions with `useFormState` (React 18 API)
+- Server Components by default; Server Actions with `useActionState` (React 19 API)
 - `headers()` / `cookies()` / `params` / `searchParams` are **async** in Next 15
 - **Supabase** (Postgres 17.6) + **Drizzle ORM 0.36.4**
 - **Vitest** + jsdom. **Tailwind**, no component library beyond local primitives
@@ -181,15 +190,17 @@ src/lib/<domain>/actions.ts         'use server' writes
 src/components/<domain>/            presentation
 src/app/(app)/<route>/              authenticated screens
 src/app/(print)/<route>/print/      chrome-free printable views
+src/mcp/<server>/                   MCP servers over the pure cores (stdio + HTTP entries)
 drizzle/                            migrations (generated DDL + hand-written RLS)
 scripts/                            RLS harness, setup script, verifiers
 docs/                               PRD, architecture, full 50-table schema
+.claude/workflows/                  saved multi-agent workflows (Workflow tool)
 ```
 
 Domains built: `ai-foreman` `auth` `calendar` `catalog` `change-orders` `clients` `contracts`
 `costing` `daily-logs` `dashboard` `email` `estimates` `financials` `google` `intake` `invoices`
 `leads` `media` `projects` `proposals` `schedule` `scopes` `signatures`
-`site-visits` `storage` `tasks`
+`site-visits` `storage` `tasks` `texas-tax`
 
 ---
 
@@ -284,6 +295,14 @@ Not "Warning: incomplete data." Not "Invalid range."
   revenue recognised and only some of its cost.
 - **A member with no cost rate isn't given a made-up one.** Their labour isn't
   costed, and the UI says so. A guessed rate would poison every margin invisibly.
+- **Texas tax rules carry their evidence.** Every rule the code applies is a fact
+  in `src/lib/texas-tax/ledger.ts` with its sources and a status — confirmed,
+  partly confirmed, not settled — and code cites facts by id, test-enforced. An
+  unsettled rule is shown as unsettled; nothing is paraphrased from memory.
+- **Profiles, not companies.** The tax code reasons about kinds of business
+  (contractor, vehicle rental, holding company). This repository is public: a
+  particular owner's companies, purchasing and exposure never go in code, docs,
+  commits, PR text or the agent log.
 
 ---
 
@@ -300,13 +319,22 @@ Not "Warning: incomplete data." Not "Invalid range."
 4. **No client payment portal or card processing.** Payments are recorded by hand.
 5. **Storage uploads are unverified end to end.** The `project-files` bucket
    exists and is private, but no file has actually been pushed through.
+6. **Texas tax tooling.** Approve the `texas-tax` MCP server the first time Claude
+   Code asks (a committed file can't approve it). Decide whether, and where, to
+   host its HTTP connector — nothing is deployed. Set the property type and the
+   state on every new property — the existing ones were set on 2026-09-30. The
+   estimate and invoice tax checks run only when they know both.
 
 ---
 
 ## Current state
 
-- **767 unit tests** across 37 files
-- **184 real-Postgres RLS assertions**
+- **957 unit tests** across 51 files
+- **216 real-Postgres RLS assertions**
+- **Texas tax ledger:** 44 facts — 38 confirmed, 5 partly confirmed, 1 not
+  settled — checked 2026-09-26 (two on 2026-09-27) through search excerpts of
+  Comptroller pages and the Tax Code (the Comptroller's site itself is blocked
+  in the build environment). Refresh with the `texas-tax-refresh` workflow.
 - **50 tables**, all `ENABLE` + `FORCE` RLS
 - Migrations through `0048` applied to the live project and verified
 - Security advisor: three pre-existing WARNs on `has_role` / `is_member_of` /

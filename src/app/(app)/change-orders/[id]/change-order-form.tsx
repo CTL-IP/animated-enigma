@@ -1,7 +1,6 @@
 'use client';
 
-import { useState } from 'react';
-import { useFormState } from 'react-dom';
+import { useActionState, useState } from 'react';
 import { Plus, Trash2 } from 'lucide-react';
 import { saveChangeOrder } from '@/lib/change-orders/actions';
 import {
@@ -44,7 +43,7 @@ export function ChangeOrderForm({
     items: ChangeOrderItemInput[];
   };
 }) {
-  const [state, formAction] = useFormState(
+  const [state, formAction] = useActionState(
     saveChangeOrder,
     {} as { error?: string; message?: string },
   );

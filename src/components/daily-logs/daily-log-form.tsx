@@ -1,7 +1,6 @@
 'use client';
 
-import { useFormState } from 'react-dom';
-import { useState } from 'react';
+import { useActionState, useState } from 'react';
 import { NotebookPen } from 'lucide-react';
 import { createDailyLog, updateDailyLog } from '@/lib/daily-logs/actions';
 import {
@@ -45,7 +44,7 @@ export function DailyLogForm({
   const editing = Boolean(logId);
   const [open, setOpen] = useState(editing);
   const [showAll, setShowAll] = useState(editing);
-  const [state, formAction] = useFormState(editing ? updateDailyLog : createDailyLog, initial);
+  const [state, formAction] = useActionState(editing ? updateDailyLog : createDailyLog, initial);
 
   if (!open) {
     return (

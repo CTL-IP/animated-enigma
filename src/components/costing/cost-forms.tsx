@@ -1,7 +1,6 @@
 'use client';
 
-import { useFormState } from 'react-dom';
-import { useState } from 'react';
+import { useActionState, useState } from 'react';
 import { Play, Plus, Square } from 'lucide-react';
 import { clockIn, clockOut, logTimeManually, recordExpense } from '@/lib/costing/actions';
 import {
@@ -90,7 +89,7 @@ export function ClockControls({
 }
 
 function ManualTimeForm({ projectId }: { projectId: string }) {
-  const [state, formAction] = useFormState(logTimeManually, initial);
+  const [state, formAction] = useActionState(logTimeManually, initial);
 
   return (
     <form action={formAction} className="space-y-3 rounded-md border p-3">
@@ -140,7 +139,7 @@ function ManualTimeForm({ projectId }: { projectId: string }) {
 /** Records money spent on a job. */
 export function ExpenseForm({ projectId }: { projectId: string }) {
   const [open, setOpen] = useState(false);
-  const [state, formAction] = useFormState(recordExpense, initial);
+  const [state, formAction] = useActionState(recordExpense, initial);
 
   if (!open) {
     return (

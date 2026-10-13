@@ -1,7 +1,6 @@
 'use client';
 
-import { useState } from 'react';
-import { useFormState } from 'react-dom';
+import { useActionState, useState } from 'react';
 import { Plus } from 'lucide-react';
 import {
   changeProjectStatus,
@@ -130,7 +129,7 @@ export function RemoveTeamMemberButton({
 const noteInitial: FormState = {};
 
 export function AddNoteForm({ projectId }: { projectId: string }) {
-  const [state, formAction] = useFormState(addProjectNote, noteInitial);
+  const [state, formAction] = useActionState(addProjectNote, noteInitial);
   return (
     <form action={formAction} className="space-y-2">
       <FormNotice error={state.error} message={state.message} />

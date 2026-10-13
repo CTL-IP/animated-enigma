@@ -1,7 +1,6 @@
 'use client';
 
-import { useFormState } from 'react-dom';
-import { useState } from 'react';
+import { useActionState, useState } from 'react';
 import { Camera, FilePlus } from 'lucide-react';
 import { uploadDocument, uploadPhotos } from '@/lib/media/actions';
 import {
@@ -31,7 +30,7 @@ const initial = {} as { error?: string; message?: string };
  */
 export function PhotoUploadForm({ projectId }: { projectId: string }) {
   const [open, setOpen] = useState(false);
-  const [state, formAction] = useFormState(uploadPhotos, initial);
+  const [state, formAction] = useActionState(uploadPhotos, initial);
 
   if (!open) {
     return (
@@ -124,7 +123,7 @@ export function PhotoUploadForm({ projectId }: { projectId: string }) {
 /** Document upload — receipts, permits, plans, specs. */
 export function DocumentUploadForm({ projectId }: { projectId: string }) {
   const [open, setOpen] = useState(false);
-  const [state, formAction] = useFormState(uploadDocument, initial);
+  const [state, formAction] = useActionState(uploadDocument, initial);
 
   if (!open) {
     return (

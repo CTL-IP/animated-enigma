@@ -1,6 +1,6 @@
 'use client';
 
-import { useFormState } from 'react-dom';
+import { useActionState } from 'react';
 import Link from 'next/link';
 import { quickIntake, type IntakeFormState } from '@/lib/intake/actions';
 import { PRIORITIES, PRIORITY_LABELS } from '@/lib/leads/leads-core';
@@ -44,7 +44,7 @@ const initial: IntakeFormState = {};
  * "Save & take another" loops back for the next call, "Save & open" jumps to
  * the new lead so the rep can keep working it. */
 export function QuickIntakeForm() {
-  const [state, formAction] = useFormState(quickIntake, initial);
+  const [state, formAction] = useActionState(quickIntake, initial);
 
   return (
     <form action={formAction} className="space-y-5">

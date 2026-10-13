@@ -1,7 +1,6 @@
 'use client';
 
-import { useState } from 'react';
-import { useFormState } from 'react-dom';
+import { useActionState, useState } from 'react';
 import { CalendarPlus } from 'lucide-react';
 import { scheduleVisit } from '@/lib/site-visits/actions';
 import type { FormState } from '@/lib/auth/actions';
@@ -36,7 +35,7 @@ export function ScheduleVisitForm({
   members: Member[];
 }) {
   const [open, setOpen] = useState(false);
-  const [state, formAction] = useFormState(scheduleVisit, initial);
+  const [state, formAction] = useActionState(scheduleVisit, initial);
 
   // Close the form once a visit is scheduled successfully.
   if (state.message && open) setOpen(false);

@@ -1,7 +1,6 @@
 'use client';
 
-import { useLayoutEffect, useRef, useState } from 'react';
-import { useFormState } from 'react-dom';
+import { useActionState, useLayoutEffect, useRef, useState } from 'react';
 import { Plus, Trash2 } from 'lucide-react';
 import { saveInvoice } from '@/lib/invoices/actions';
 import {
@@ -38,7 +37,7 @@ export function InvoiceForm({
     paymentInstructions: string;
   };
 }) {
-  const [state, formAction] = useFormState(saveInvoice, {} as { error?: string; message?: string });
+  const [state, formAction] = useActionState(saveInvoice, {} as { error?: string; message?: string });
   const [rows, setRows] = useState<Row[]>(() =>
     initial.lines.length > 0
       ? initial.lines.map((l, i) => ({ ...l, key: `l${i}` }))

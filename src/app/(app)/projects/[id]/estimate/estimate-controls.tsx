@@ -1,7 +1,7 @@
 'use client';
 
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
-import { useFormState } from 'react-dom';
+import { useActionState } from 'react';
 import {
   changeEstimateStatus,
   createNewEstimateVersion,
@@ -103,7 +103,7 @@ export function RateControls({
   version: EstimateVersionRow;
   editable: boolean;
 }) {
-  const [state, formAction] = useFormState(updateRates, initial);
+  const [state, formAction] = useActionState(updateRates, initial);
   const pct = (v: string | null) => (v ? String(Math.round(Number(v) * 1000) / 10) : '0');
 
   if (!editable) {

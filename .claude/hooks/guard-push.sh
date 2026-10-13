@@ -16,8 +16,11 @@ DESIGNATED="$({ tr -d '[:space:]' < "$(dirname "${BASH_SOURCE[0]}")/designated-b
 payload="$(cat 2>/dev/null || echo '{}')"
 cmd="$(printf '%s' "$payload" | jq -r '.tool_input.command // ""' 2>/dev/null)"
 
-# Not a push — nothing to say.
-printf '%s' "$cmd" | grep -qE '(^|[;&|]|\s)git\s+push\b' || exit 0
+# Not a push — nothing to say. Cursor requires JSON on stdout even when allowing.
+if ! printf '%s' "$cmd" | grep -qE '(^|[;&|]|\s)git\s+push\b'; then
+  printf '%s\n' '{}'
+  exit 0
+fi
 
 deny() {
   jq -n --arg r "$1" '{
@@ -65,7 +68,8 @@ if [ "$target" != "$DESIGNATED" ]; then
 All work on this project goes to:
     $DESIGNATED
 
-Pushing elsewhere — main especially — needs Patrick's explicit permission first. If he has given it in this conversation, tell him the hook blocked it and ask him to confirm, rather than working around it."
+  Pushing elsewhere — main especially — needs Patrick's explicit permission first. If he has given it in this conversation, tell him the hook blocked it and ask him to confirm, rather than working around it."
 fi
 
+printf '%s\n' '{}'
 exit 0

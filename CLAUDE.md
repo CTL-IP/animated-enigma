@@ -136,7 +136,7 @@ blocked and ask him to confirm — don't work around it.
 ## Stack
 
 - **Next.js 15.1.6** App Router, **React 18.3.1**, TypeScript strict
-- Server Components by default; Server Actions with `useFormState` (React 18 API)
+- Server Components by default; Server Actions with `useActionState` (React 19 API)
 - `headers()` / `cookies()` / `params` / `searchParams` are **async** in Next 15
 - **Supabase** (Postgres 17.6) + **Drizzle ORM 0.36.4**
 - **Vitest** + jsdom. **Tailwind**, no component library beyond local primitives

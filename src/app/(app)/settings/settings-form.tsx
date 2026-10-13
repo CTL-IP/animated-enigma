@@ -1,6 +1,6 @@
 'use client';
 
-import { useFormState } from 'react-dom';
+import { useActionState } from 'react';
 import { updateOrganizationSettings } from '@/lib/auth/org-actions';
 import { DEFAULT_SIGNATURE_DISCLOSURE } from '@/lib/signatures/signature-core';
 import { DEFAULT_CONTRACT_TERMS, serializeTerms } from '@/lib/contracts/terms-core';
@@ -28,7 +28,7 @@ export function SettingsForm({
     contractTerms: string;
   };
 }) {
-  const [state, formAction] = useFormState(updateOrganizationSettings, initial);
+  const [state, formAction] = useActionState(updateOrganizationSettings, initial);
 
   return (
     <form action={formAction} className="space-y-6">

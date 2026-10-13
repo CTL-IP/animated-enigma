@@ -16,12 +16,13 @@ import { describe, it, expect, afterEach, vi } from 'vitest';
 import { render, screen, fireEvent, cleanup } from '@testing-library/react';
 import { InvoiceForm } from '@/app/(app)/invoices/[id]/invoice-form';
 
-// React 18's react-dom has neither hook, and only takes a string as a form's
-// action; the app's React 19 has both hooks and takes the server action. The
-// form's saved message and pending state aren't under test.
+// The form's saved message and pending state aren't under test.
+vi.mock('react', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('react')>()),
+  useActionState: (_action: unknown, initial: unknown) => [initial, 'saveInvoice'],
+}));
 vi.mock('react-dom', async (importOriginal) => ({
   ...(await importOriginal<typeof import('react-dom')>()),
-  useFormState: (_action: unknown, initial: unknown) => [initial, 'saveInvoice'],
   useFormStatus: () => ({ pending: false }),
 }));
 vi.mock('@/lib/invoices/actions', () => ({ saveInvoice: 'saveInvoice' }));

@@ -135,8 +135,8 @@ comments, PR titles, or bodies.
 
 ## Push
 
-Branch is `claude/loving-pasteur-hyl6er`. Always
-`git push -u origin claude/loving-pasteur-hyl6er`. Never push elsewhere
+Branch is `claude/trusting-tesla-8u5367`. Always
+`git push -u origin claude/trusting-tesla-8u5367`. Never push elsewhere
 without being asked. On a network failure, retry up to four times with 2s/4s/8s/16s
 backoff.
 

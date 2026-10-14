@@ -10,6 +10,7 @@ import {
 import type { FormState } from '@/lib/auth/actions';
 import {
   allowedTransitions,
+  rateFieldValue,
   VERSION_STATUS_LABELS,
   type VersionStatus,
 } from '@/lib/estimates/estimate-core';
@@ -104,7 +105,7 @@ export function RateControls({
   editable: boolean;
 }) {
   const [state, formAction] = useActionState(updateRates, initial);
-  const pct = (v: string | null) => (v ? String(Math.round(Number(v) * 1000) / 10) : '0');
+  const pct = rateFieldValue;
 
   if (!editable) {
     return (
@@ -150,7 +151,9 @@ function RateField({
   return (
     <div>
       <label className="mb-1 block text-xs text-muted-foreground">{label}</label>
-      <Input name={name} type="number" min="0" max="100" step="0.1" defaultValue={defaultValue} />
+      {/* Hundredths, to match what the column keeps: most DFW addresses are
+          8.25%, which a 0.1 step refused outright. */}
+      <Input name={name} type="number" min="0" max="100" step="0.01" defaultValue={defaultValue} />
     </div>
   );
 }

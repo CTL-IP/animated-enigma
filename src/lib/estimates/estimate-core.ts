@@ -193,6 +193,18 @@ export function formatMarginPct(fraction: string | number | null | undefined): s
   return `${Math.round((n + Number.EPSILON) * 10) / 10}%`;
 }
 
+/**
+ * A stored rate fraction as the number its Pricing field shows: 0.0825 → "8.25".
+ *
+ * Exact to the column's four places, which is two decimals of a percent. Rounded
+ * to one decimal, a Dallas 8.25% showed as 8.3 — and saving overhead or profit
+ * wrote that 8.3 back as the tax rate.
+ */
+export function rateFieldValue(fraction: string | number | null | undefined): string {
+  if (fraction === null || fraction === undefined || fraction === '') return '0';
+  return String(Math.round((toNum(fraction) + Number.EPSILON) * 10000) / 100);
+}
+
 /** Ordering helpers reused across scope/estimate builders. */
 export function nextSortOrder(items: { sortOrder: number }[]): number {
   return items.length === 0 ? 0 : Math.max(...items.map((i) => i.sortOrder)) + 1;

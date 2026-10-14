@@ -13,8 +13,10 @@ root="${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null)}"
 [ -n "$root" ] && [ -d "$root" ] || exit 0
 cd "$root" || exit 0
 
-# The same file guard-push.sh reads, so the two can't disagree.
-DESIGNATED="$({ tr -d '[:space:]' < "$(dirname "${BASH_SOURCE[0]}")/designated-branch"; } 2>/dev/null)"
+# The same file guard-push.sh reads, read the same way, so the two can't disagree:
+# one cleared branch per line, blank lines and `#` comments ignored.
+DESIGNATED="$({ grep -vE '^[[:space:]]*(#|$)' "$(dirname "${BASH_SOURCE[0]}")/designated-branch" | tr -d ' \t\r' | tr '\n' ' '; } 2>/dev/null)"
+DESIGNATED="${DESIGNATED% }"
 branch="$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo unknown)"
 dirty_count="$(git status --porcelain 2>/dev/null | wc -l | tr -d ' ')"
 last_commit="$(git log -1 --format='%s' 2>/dev/null | cut -c1-72)"
@@ -51,12 +53,17 @@ lines=()
 lines+=("PT's Tactical Foreman — session start")
 lines+=("")
 
+cleared=0
+for b in $DESIGNATED; do [ "$branch" = "$b" ] && cleared=1; done
 if [ -z "$DESIGNATED" ]; then
   lines+=("branch:      $branch  ⚠ no designated branch (.claude/hooks/designated-branch is missing) — pushes are blocked")
-elif [ "$branch" = "$DESIGNATED" ]; then
+elif [ "$cleared" -eq 1 ]; then
   lines+=("branch:      $branch")
+elif printf '%s' "$branch" | grep -qE '^claude/'; then
+  # Not pinned, but it is this session's own branch: the guard allows pushing it.
+  lines+=("branch:      $branch  (session branch; cleared list: $DESIGNATED)")
 else
-  lines+=("branch:      $branch  ⚠ NOT the designated branch ($DESIGNATED)")
+  lines+=("branch:      $branch  ⚠ NOT a cleared branch ($DESIGNATED) — pushes here are blocked")
 fi
 
 lines+=("last commit: $last_commit")
@@ -75,8 +82,8 @@ lines+=("migrations:  $migration_count files, latest $latest_migration")
 if [ "${migration_count:-0}" -lt 40 ]; then
   lines+=("")
   lines+=("⚠ TREE LOOKS WRONG: only $migration_count migrations here; the real branch carries 43+.")
-  lines+=("  Do not build on this. First: git fetch origin $DESIGNATED")
-  lines+=("  then compare: git log --oneline -1 origin/$DESIGNATED")
+  lines+=("  Do not build on this. First: git fetch origin ${DESIGNATED%% *}")
+  lines+=("  then compare: git log --oneline -1 origin/${DESIGNATED%% *}")
 fi
 lines+=("")
 lines+=("Blocked on Patrick: cost rates per person (margins are meaningless until set);")

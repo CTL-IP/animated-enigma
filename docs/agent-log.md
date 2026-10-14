@@ -58,6 +58,7 @@ is a public-shaped file in a repository. Reference a variable by name only.
 | 9 | Host the `texas-tax` MCP server's HTTP entry as a claude.ai connector (phone, Cowork)? Manufact is TAC-BRIDGE's approved MCP host (owner approval required). Nothing is deployed. | 2026-09-27 | Owner |
 | 10 | Confirm the push guard should pin `claude/trusting-tesla-8u5367`. A session assigned that branch repointed `.claude/hooks/designated-branch`, the two branch lines in `CLAUDE.md` and two lines in `ship-check` (commit `d375b3f`) because the old pin, `claude/loving-pasteur-hyl6er`, was already merged and nothing could be pushed. Done through the procedure `CLAUDE.md` describes, but it changes a protective hook, so it needs the owner's yes. | 2026-10-01 | Owner |
 | 11 | The push guard is **disabled**: commit `308870c` (PR #9, merged to `main` 2026-10-12) replaced the `guard-push.sh` hook command in `.claude/settings.json` with `echo {}`, so every push passes. CLAUDE.md still describes it as a hard deny. The root cause is thread 10's: the guard pins one branch while each session is assigned its own. Either restore it and let it accept the branch the session was assigned, or decide it stays off — but it should not stay off by accident. | 2026-10-13 | Owner |
+| 12 | Approve the marketing add-on in `docs/marketing-module.md`: the staged plan, how client marketing consent is captured, who may approve a post, and whether Marketing becomes a thirteenth navigation section. Recommendation on file: staged; no new section before the review queue is in use. | 2026-10-13 | Owner |
 
 ### Settled
 
@@ -75,6 +76,32 @@ is a public-shaped file in a repository. Reference a variable by name only.
 ---
 
 ## Log
+
+## 2026-10-13 — Marketing add-on drafted: one system for job photos, leads and posts
+**By:** Claude (in the owner's browser) · **Commit:** on `marketing-module-addendum`
+
+Patrick asked whether to combine the job-photo marketing pipeline with the
+Foreman. Added `docs/marketing-module.md`, a PRD addendum marked draft. No code,
+schema, migration or setting changed.
+
+Proposed: the Foreman becomes the system of record for job photos, leads and
+client marketing consent; marketing reads cleared photos from it and writes
+leads back. Three stages — connect, a review queue under Documents, then
+publishing through a provider seam. Navigation stays at twelve sections; a
+thirteenth is left to the owner (open thread 12).
+
+Rejected: merging everything at once — marketing would stop while it was
+rebuilt, and storage uploads are still unverified end to end. Rejected:
+keeping them apart — every job photo uploaded twice, and no way to tie a post
+to the revenue it brought in. Rejected: reusing `clientVisible` as marketing
+clearance — portal visibility and public posting are different permissions.
+
+Found, not fixed: `README.md`'s project-structure block still describes the
+early scaffold (`middleware.ts # session refresh (route protection: Task 6)`)
+while `CLAUDE.md` says tasks 1–33 are live. It misled this session before
+`CLAUDE.md` was read.
+
+Not verified: nothing was run. This is a document.
 
 ## 2026-10-13 — Billing foundation, onboarding, security policy; the push guard is off
 **By:** Claude (session on `claude/tactical-foreman-build-m7i3ng`) · **Commits:** `dfcc041` `b192902` `e6dce6d` `5576db0` `eba21bb`

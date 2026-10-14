@@ -77,6 +77,27 @@ is a public-shaped file in a repository. Reference a variable by name only.
 
 ## Log
 
+## 2026-10-14 — The restored guard fired in a live turn: deny, allow, deny
+**By:** Claude (session on `claude/tactical-foreman-build-m7i3ng`) · **Commit:** the one carrying this entry
+
+The entry below left one thing open: the hook had only been pipe-tested, never
+exercised by a real push through Claude Code. Owner's word once PR #28 was up:
+"check that the guard works." Three pushes went through the real `PreToolUse`
+hook, in a session started with the restored `settings.json`:
+
+- `git push --dry-run origin HEAD:main` — denied before git ran, with the
+  message naming the cleared list and the current checkout.
+- `git push -u origin claude/tactical-foreman-build-m7i3ng` — allowed;
+  "Everything up-to-date".
+- `git push --dry-run --force origin claude/tactical-foreman-build-m7i3ng` —
+  denied as a force-push.
+
+The push carrying this entry is the fourth, and the first with content.
+
+For whoever reads this next: at the time of writing PR #28 is still open and
+`main` is at the #27 commit, so a session started from `main` does not have the
+guard yet. It arrives when #28 merges; the PR description records the tests.
+
 ## 2026-10-14 — The push guard is back on, and it no longer pins one branch
 **By:** Claude (session on `claude/tactical-foreman-build-m7i3ng`) · **Commit:** the one carrying this entry
 

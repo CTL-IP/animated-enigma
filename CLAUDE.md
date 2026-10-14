@@ -30,8 +30,11 @@ These come from Patrick and are not negotiable.
 ### Git
 
 - Branch: **`claude/trusting-tesla-8u5367`**. Never push elsewhere without
-  explicit permission. The hooks read it from `.claude/hooks/designated-branch`;
-  when Patrick names a new branch, that file and this line change together.
+  explicit permission. The hooks read it from `.claude/hooks/designated-branch`
+  (one cleared branch per line); when Patrick names a new branch, that file and
+  this line change together. A session may also push the `claude/*` branch it
+  was assigned and is standing on without being listed — that is what the guard
+  treats as "its own" — but never `main`, and never anyone else's.
 - `git push -u origin claude/trusting-tesla-8u5367`, retrying up to four
   times on network failure with 2s/4s/8s/16s backoff.
 - Commit trailer, every time:
@@ -118,7 +121,7 @@ otherwise held only by my remembering them.
 |---|---|---|
 | `verify-evidence.sh` | Stop | Runs typecheck, lint, tests (and the RLS suite when SQL changed). **Blocks the turn on failure.** |
 | `check-schema-completeness.sh` | Stop | Names which of the four schema follow-through steps are still missing |
-| `guard-push.sh` | PreToolUse / Bash | **Denies** any push to a branch other than the one in `designated-branch`, and any force-push |
+| `guard-push.sh` | PreToolUse / Bash | **Denies** any push to `main` or to a branch that is neither listed in `designated-branch` nor the session's own `claude/*` branch (the one it is standing on), and any force-push |
 | `session-state.sh` | SessionStart | Reports branch, working state, migration count, and what's blocked on Patrick |
 
 `verify-evidence.sh` exists because rule 6 is the one that matters most, and

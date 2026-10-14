@@ -57,7 +57,6 @@ is a public-shaped file in a repository. Reference a variable by name only.
 | 8 | The organization timezone defaults to `America/New_York`, and the contract terms and docs refer to Ohio; the business is in Dallas–Fort Worth. Confirm the live organization's timezone (`America/Chicago` for DFW) and take the contract terms' state to the attorney review. | 2026-09-27 | Owner |
 | 9 | Host the `texas-tax` MCP server's HTTP entry as a claude.ai connector (phone, Cowork)? Manufact is TAC-BRIDGE's approved MCP host (owner approval required). Nothing is deployed. | 2026-09-27 | Owner |
 | 10 | Confirm the push guard should pin `claude/trusting-tesla-8u5367`. A session assigned that branch repointed `.claude/hooks/designated-branch`, the two branch lines in `CLAUDE.md` and two lines in `ship-check` (commit `d375b3f`) because the old pin, `claude/loving-pasteur-hyl6er`, was already merged and nothing could be pushed. Done through the procedure `CLAUDE.md` describes, but it changes a protective hook, so it needs the owner's yes. | 2026-10-01 | Owner |
-| 11 | The push guard is **disabled**: commit `308870c` (PR #9, merged to `main` 2026-10-12) replaced the `guard-push.sh` hook command in `.claude/settings.json` with `echo {}`, so every push passes. CLAUDE.md still describes it as a hard deny. The root cause is thread 10's: the guard pins one branch while each session is assigned its own. Either restore it and let it accept the branch the session was assigned, or decide it stays off — but it should not stay off by accident. | 2026-10-13 | Owner |
 | 12 | Approve the marketing add-on in `docs/marketing-module.md`: the staged plan, how client marketing consent is captured, who may approve a post, and whether Marketing becomes a thirteenth navigation section. Recommendation on file: staged; no new section before the review queue is in use. | 2026-10-13 | Owner |
 
 ### Settled
@@ -72,10 +71,47 @@ is a public-shaped file in a repository. Reference a variable by name only.
 | Does production deploy from `main`, or does PR #6 merge first? (was thread 1) | PR #6 merged 2026-09-25 and #13 four days later; production deploys from `main`. The Vercel project's Git connection turned out to be disconnected — every "Ready" build was a redeploy of one old commit — and the owner reconnected it the same night, after which pushes built within a minute. | 2026-09-25 |
 | A Google Cloud OAuth client has to exist before anyone can connect Google (was thread 5). | Owner created it 2026-09-25: APIs enabled, internal consent screen, Web-application client, the Settings card's callback URL registered, three `GOOGLE_*` variables set (one round of fixes for lowercase names and a swapped id/secret). Connect works; the owner confirmed email send and calendar sync on real records. | 2026-09-25 |
 | The Vercel project has no environment variables (was thread 6). | Set by the owner 2026-09-25 by hand — the Marketplace "Connect to supabase-gray-door" flow was abandoned because the two existing `NEXT_PUBLIC_SUPABASE_*` values already matched the real project. The app has run against the live database since. | 2026-09-25 |
+| The push guard is disabled (was thread 11; thread 10's single-pin problem underneath it). | Owner said "restore the push guard" on 2026-10-14. Restored in `.claude/settings.json`, and the single pin replaced: `designated-branch` is now a list (one per line, comments allowed), and a session may also push the `claude/*` branch it is standing on. `main`, anyone else's branch, and every force-push stay denied. Thread 10's question — which one branch to pin — no longer needs answering; the file can carry several. | 2026-10-14 |
 
 ---
 
 ## Log
+
+## 2026-10-14 — The push guard is back on, and it no longer pins one branch
+**By:** Claude (session on `claude/tactical-foreman-build-m7i3ng`) · **Commit:** the one carrying this entry
+
+Owner's word: "restore the push guard." `.claude/settings.json` runs
+`guard-push.sh` again instead of `echo {}` (PR #9 had switched it off).
+
+Restored as it was, the guard would have blocked this very push: it allowed one
+branch, named in `designated-branch`, and every session is handed a fresh
+`claude/<slug>` — which is how it came to be disabled rather than repointed a
+third time. So the rule changed with it, as narrowly as it could:
+
+- `designated-branch` is a list — one branch per line, blanks and `#` comments
+  ignored — read identically by the guard and by `session-state.sh`.
+- A session may push the `claude/*` branch it is standing on, listed or not.
+  That is the branch the host assigned it; reaching anyone else's takes a
+  deliberate checkout first.
+- `main`, any unlisted branch that isn't the current `claude/*` one, every
+  force-push (`--force`, `--force-with-lease`, `-f`), and a missing or empty
+  list are denied exactly as before. A bare `git push` is now judged by the
+  branch it would actually push, not assumed to be the cleared one — standing
+  on `main` is the case the hook exists for.
+
+`session-state.sh` reports a session branch as such instead of warning that it
+is "NOT the designated branch". CLAUDE.md's two guard lines say the new rule.
+The pin itself (`claude/trusting-tesla-8u5367`) was left alone — not this
+session's to change.
+
+Tested by feeding the hook the exact JSON it receives: 21 commands (cleared,
+own, `main`, `HEAD:main`, `+main`, three force forms, bare push on the own
+branch and — in a scratch clone — on `main`, another session's branch, `;`/`&&`/
+`|` chains, the retry loop, a non-push, the file missing) and, after a fix, a
+two-line CRLF file with a comment and a blank. The pipe test caught a real bug
+on the first pass: `tr -d '[:space:]'` also eats newlines, so two listed
+branches fused into one name. Not yet exercised by a real push at the time of
+writing — the push of this commit is the first, through the restored hook.
 
 ## 2026-10-13 — Marketing add-on drafted: one system for job photos, leads and posts
 **By:** Claude (in the owner's browser) · **Commit:** on `marketing-module-addendum`

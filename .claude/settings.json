@@ -22,7 +22,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "echo {}",
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/guard-push.sh\"",
             "if": "Bash(git push*)",
             "timeout": 15
           }

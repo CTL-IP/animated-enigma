@@ -79,6 +79,37 @@ is a public-shaped file in a repository. Reference a variable by name only.
 
 ## Log
 
+## 2026-10-15 — Estimate page no longer scrolls sideways on a phone
+**By:** Cursor (session on `cursor/estimate-mobile-overflow-16c5`) · **Commit:** the one carrying this entry
+
+The project estimate page was wider than a phone. The line table already
+sat in `overflow-x-auto`, but the layout grid's children defaulted to
+`min-width: auto`, so the table's intrinsic width stretched the whole
+page. At a 390px viewport in this run, `document.documentElement.scrollWidth`
+was **517** (the original report on 2026-10-01 measured **550** — same
+bug, different chrome). The right edge of the line table, the last fields
+of the add-line form, and the Totals figures sat past the screen.
+
+Fix is layout only, matching Financials: `min-w-0` on the grid and its
+children so the track can shrink, and `min-w-[560px]` on the table so
+the existing overflow wrapper is the only sideways scroll. The add-line
+form wraps. Totals stay inside the card. Stacking the rows as cards on
+small screens was rejected — other wide lists in this app keep the table
+and scroll it.
+
+Left the rate-input `step` line in `estimate-controls.tsx` alone (open
+PR #30 touches that).
+
+Verified on a throwaway local Postgres + auth stub, never the live
+project: Chromium at 360 / 390 / 430 × 844. After the fix, page
+`scrollWidth` equals the viewport at all three widths (390 at 390px).
+The table wrapper at 390px is 356px wide and scrolls to 560. typecheck
+clean; lint clean; 1010 unit tests in 53 files; production build
+succeeded. RLS suite not run — no SQL changed.
+
+Not verified: a headed desktop-browser pass (the GUI subagent could not
+start). A real phone was not used.
+
 ## 2026-10-15 — Installable on phones and desktops: web manifest and icons
 **By:** Claude (session on `claude/tactical-foreman-build-m7i3ng`) · **Commit:** the one carrying this entry
 

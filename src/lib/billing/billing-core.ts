@@ -42,7 +42,13 @@ export interface TierPricing {
 // Numbers as set by the owner — not derived, not guessed. Change here only on
 // his word; nothing in this module infers a price from anything else.
 export const TIER_PRICING: Record<BillingTier, TierPricing> = {
-  starter: { tier: 'starter', label: 'Starter', monthlyBase: 150, annualPct: 0.06, monthlyForeverPct: 0.03 },
+  starter: {
+    tier: 'starter',
+    label: 'Starter',
+    monthlyBase: 150,
+    annualPct: 0.06,
+    monthlyForeverPct: 0.03,
+  },
   established: {
     tier: 'established',
     label: 'Established',
@@ -50,7 +56,13 @@ export const TIER_PRICING: Record<BillingTier, TierPricing> = {
     annualPct: 0.085,
     monthlyForeverPct: 0.045,
   },
-  growing: { tier: 'growing', label: 'Growing', monthlyBase: 1500, annualPct: 0.12, monthlyForeverPct: 0.0737 },
+  growing: {
+    tier: 'growing',
+    label: 'Growing',
+    monthlyBase: 1500,
+    annualPct: 0.12,
+    monthlyForeverPct: 0.0737,
+  },
   enterprise: {
     tier: 'enterprise',
     label: 'Enterprise',
@@ -60,7 +72,52 @@ export const TIER_PRICING: Record<BillingTier, TierPricing> = {
   },
 };
 
-export const TIER_ORDER: readonly BillingTier[] = ['starter', 'established', 'growing', 'enterprise'];
+export const TIER_ORDER: readonly BillingTier[] = [
+  'starter',
+  'established',
+  'growing',
+  'enterprise',
+];
+
+/** How each cadence reads on a screen — the tier label carries the rest. */
+export const CADENCE_LABELS: Record<BillingCadence, string> = {
+  annual: 'Usage billed once a year',
+  monthly_forever: 'Usage billed monthly, ongoing',
+};
+
+/**
+ * Where a subscription stands, as the app records it. `pending` is the row
+ * before Stripe has collected anything; only a Stripe webhook moves it off
+ * that — the app never promotes a subscription on its own say-so.
+ */
+export const SUBSCRIPTION_STATUSES = [
+  'pending',
+  'trialing',
+  'active',
+  'past_due',
+  'canceled',
+] as const;
+export type SubscriptionStatus = (typeof SUBSCRIPTION_STATUSES)[number];
+
+export function isSubscriptionStatus(value: string): value is SubscriptionStatus {
+  return (SUBSCRIPTION_STATUSES as readonly string[]).includes(value);
+}
+
+export const SUBSCRIPTION_STATUS_LABELS: Record<SubscriptionStatus, string> = {
+  pending: 'Not started',
+  trialing: 'Trial',
+  active: 'Active',
+  past_due: 'Payment overdue',
+  canceled: 'Canceled',
+};
+
+export const SUBSCRIPTION_STATUS_STYLES: Record<SubscriptionStatus, string> = {
+  pending: 'bg-muted text-muted-foreground',
+  trialing: 'bg-sky-500/15 text-sky-700 dark:text-sky-300',
+  active: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300',
+  past_due: 'bg-amber-500/15 text-amber-700 dark:text-amber-300',
+  canceled: 'bg-destructive/10 text-destructive',
+};
 
 export interface BillingCharges {
   /** Charged every month, every cadence. */

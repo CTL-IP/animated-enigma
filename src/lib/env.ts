@@ -33,8 +33,15 @@ const serverSchema = z.object({
   GOOGLE_OAUTH_REDIRECT_URI: z.string().url().optional(),
   /** 32 random bytes, base64. Encrypts stored refresh tokens app-side. */
   GOOGLE_TOKEN_ENCRYPTION_KEY: z.string().optional(),
+  // Platform billing. All optional: with any absent, the Billing screen says
+  // what is missing and nobody can subscribe. The four price ids are the
+  // monthly base of each tier, created by `pnpm stripe:setup`.
   STRIPE_SECRET_KEY: z.string().optional(),
   STRIPE_WEBHOOK_SECRET: z.string().optional(),
+  STRIPE_PRICE_STARTER: z.string().optional(),
+  STRIPE_PRICE_ESTABLISHED: z.string().optional(),
+  STRIPE_PRICE_GROWING: z.string().optional(),
+  STRIPE_PRICE_ENTERPRISE: z.string().optional(),
   CONTEXT_DEV_API_KEY: z.string().min(1).optional(),
 });
 

@@ -58,6 +58,8 @@ is a public-shaped file in a repository. Reference a variable by name only.
 | 9 | Host the `texas-tax` MCP server's HTTP entry as a claude.ai connector (phone, Cowork)? Manufact is TAC-BRIDGE's approved MCP host (owner approval required). Nothing is deployed. | 2026-09-27 | Owner |
 | 10 | Confirm the push guard should pin `claude/trusting-tesla-8u5367`. A session assigned that branch repointed `.claude/hooks/designated-branch`, the two branch lines in `CLAUDE.md` and two lines in `ship-check` (commit `d375b3f`) because the old pin, `claude/loving-pasteur-hyl6er`, was already merged and nothing could be pushed. Done through the procedure `CLAUDE.md` describes, but it changes a protective hook, so it needs the owner's yes. | 2026-10-01 | Owner |
 | 12 | Approve the marketing add-on in `docs/marketing-module.md`: the staged plan, how client marketing consent is captured, who may approve a post, and whether Marketing becomes a thirteenth navigation section. Recommendation on file: staged; no new section before the review queue is in use. | 2026-10-13 | Owner |
+| 13 | Confirm the usage-fee basis. The Stripe build charges the percentage on **work signed in the period, counted once**: contracts activated in the window plus change orders approved in it (`bookedContractValue`). Monthly cadence: the month that just ended. Annual: the twelve months ending at each anniversary. The other reading — a percentage of everything currently active, every month — would charge a year-long job twelve times at 3%, which is not what "3% a month or 6% a year" says. If the basis should be something else (total active value, invoiced value, collected value), it is one query and one pure function. | 2026-10-15 | Owner |
+| 14 | What the app withholds when a subscription is overdue or canceled. Today nothing is gated: every screen works whatever `organization_subscriptions.status` says, and the Billing screen just shows the state. Options: nothing (invoice and chase by hand), a banner, or a block on new estimates/contracts after N days overdue. | 2026-10-15 | Owner |
 
 ### Settled
 
@@ -76,6 +78,67 @@ is a public-shaped file in a repository. Reference a variable by name only.
 ---
 
 ## Log
+
+## 2026-10-15 — Stripe billing: checkout, webhook sync, and the usage fee on the renewal invoice
+**By:** Claude (session on `claude/tactical-foreman-build-m7i3ng`) · **Commit:** the one carrying this entry
+
+Owner's word: "go ahead with Stripe", after counsel. Builds on the 2026-10-13
+foundation (`organization_subscriptions`, `billing-core.ts`), which had no read
+or write path. Now it has both, behind the same seam as Google:
+
+- `src/lib/stripe/stripe-core.ts` — pure. Provider status naming each missing
+  variable (`STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, four `STRIPE_PRICE_*`),
+  live/test key detection, the Stripe→app status map (eight states to five),
+  the subscription patch, Checkout parameters, the plan-choice validation, and
+  the usage window and charge for a renewal invoice. 39 tests.
+- `src/lib/stripe/client.ts` — the only file that imports the Stripe SDK:
+  customer, Checkout session, billing portal, subscription read, invoice line,
+  webhook verification. `webhook.ts` applies a verified event.
+- `src/app/api/webhooks/stripe/route.ts` — raw body, signature or 400; 503
+  when unconfigured; 500 only for failures a retry can fix.
+- `src/lib/billing/queries.ts` and `actions.ts`; `src/app/(app)/settings/billing`
+  with a plan picker whose preview uses the organisation's own signed work;
+  a Billing card on Settings. `scripts/stripe-setup.ts` (`pnpm stripe:setup`)
+  creates the four products and monthly prices idempotently by lookup key
+  and prints the env lines; it refuses a live key without `--live`.
+
+Decisions, and what was rejected:
+
+- **Stripe is the rail, not the pricing engine.** Each tier's monthly base is a
+  Stripe recurring price. The percentage is computed by the app from its own
+  contracts and added to the renewal invoice as a line, on `invoice.created`
+  for `subscription_cycle`, keyed to the invoice id so a redelivered event
+  can't bill twice. Metered billing was rejected: it would hold the pricing
+  model in two places and have the app report a number it then trusts back.
+- **The usage basis is work signed in the period, counted once.** Thread 13
+  has the reasoning and the alternative; it is one query and one function.
+- **Status moves only by webhook, and the subscription is re-read from Stripe
+  before any write**, so a late or out-of-order event can't roll the row back.
+  A cancellation that reaches a row by organisation rather than by subscription
+  id is ignored: it is an old subscription dying after a new one started.
+- **A new checkout replaces the row** (`pending`, old subscription id cleared);
+  a live subscription is changed through Stripe's portal, never by a second
+  checkout — two would bill twice.
+- **Nothing is gated on status.** Thread 14.
+
+Verified: typecheck, lint, 1010 unit tests in 53 files (39 new), the RLS
+harness — 226 PASS notices, 4 new proving the usage-basis query's window and
+status filters and that Org B cannot sum Org A's signed work — the setup-script
+check (51 tables), and the production build. The built app answers the webhook
+route with 503 and the "not configured" message when the variables are absent,
+and 405 to GET.
+
+**Not verified: no call to Stripe was made.** No product, price, customer,
+Checkout session, webhook delivery or invoice line has been exercised; the
+connected Stripe account is live-mode only and the Claude connector to it needs
+re-authorising. The reading of `period_start`/`period_end` on a
+`subscription_cycle` invoice as the period that just ended is from Stripe's
+documentation, not from a real event. The first real renewal is the test, and
+every number it uses is logged for that reason. CLAUDE.md open item 7 is the
+go-live list.
+
+Found and left: `CLAUDE.md` said 216 RLS assertions; the harness emits 222
+before this change. Corrected to 226 with this one.
 
 ## 2026-10-14 — The restored guard fired in a live turn: deny, allow, deny
 **By:** Claude (session on `claude/tactical-foreman-build-m7i3ng`) · **Commit:** the one carrying this entry

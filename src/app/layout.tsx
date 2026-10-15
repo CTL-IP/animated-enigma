@@ -8,6 +8,10 @@ export const metadata: Metadata = {
     template: "%s · PT's Tactical Foreman",
   },
   description: 'AI-powered general contractor command system for PT’s Tactical Renovations.',
+  applicationName: "PT's Tactical Foreman",
+  // Installed from Safari's share sheet, the app opens full-screen under its
+  // own name; the manifest covers Android and desktop browsers.
+  appleWebApp: { capable: true, title: 'Foreman', statusBarStyle: 'default' },
 };
 
 export const viewport: Viewport = {

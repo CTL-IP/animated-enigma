@@ -79,6 +79,27 @@ is a public-shaped file in a repository. Reference a variable by name only.
 
 ## Log
 
+## 2026-10-15 — Installable on phones and desktops: web manifest and icons
+**By:** Claude (session on `claude/tactical-foreman-build-m7i3ng`) · **Commit:** the one carrying this entry
+
+Owner's word: "make it live and present on my phone and the team's phones and
+computers." Live is PR #29 into `main`. Present is `src/app/manifest.ts`, an
+icon set rendered once from an SVG monogram with the sharp that ships with
+Next (`public/icons/`, `src/app/icon.png`, `src/app/apple-icon.png`), and the
+iOS install metadata on the root layout — so Add to Home Screen on an iPhone,
+and Install on Android and desktop Chrome or Edge, give the app its own icon
+and open it without browser chrome. `start_url` is the dashboard; signed out,
+the middleware bounces to login and back.
+
+No service worker, deliberately. Every screen sits behind a session and is
+rendered on the server; a cached page would be a stale page presented as
+current, and on a jobsite that is worse than "no connection".
+
+Verified: the build emits `/manifest.webmanifest`, `/icon.png` and
+`/apple-icon.png`; typecheck and lint clean; the rendered icon was looked at.
+Not verified: an install on a real phone — that is a tap only the owner can
+make, and the first one should be his.
+
 ## 2026-10-15 — Stripe billing: checkout, webhook sync, and the usage fee on the renewal invoice
 **By:** Claude (session on `claude/tactical-foreman-build-m7i3ng`) · **Commit:** the one carrying this entry
 

@@ -2828,5 +2828,105 @@ begin
 end $$;
 drop table tax_fixture_before;
 
+-- ═══════════════ Platform billing: the usage-fee basis (Stripe) ══════════════
+-- bookedContractValue (src/lib/billing/queries.ts): the work an organisation
+-- signed in a window — contracts activated in it plus change orders approved
+-- in it — which is what the usage fee is charged on. Seeded as the service
+-- role, in 2031 so no other block's fixture can land in the window: rows that
+-- count (active, completed, an approved credit), rows that must not (cancelled,
+-- declined, a day outside the window, the exclusive end instant), and one of
+-- each in the other organisation. Then run as app_user under each tenant's
+-- claims: the sums prove the window and the status filter, and Org B's view of
+-- Org A's rows proves the tenant boundary holds for the basis of a bill.
+reset role;
+insert into contracts (id, organization_id, project_id, contract_number, status, contract_value, activated_at) values
+  ('0b110aaa-0000-4000-8000-000000000001', '0000000a-0000-4000-8000-000000000001',
+   '000e0aaa-0000-4000-8000-000000000001', 'CON-2031-0001', 'active',    50000.00, '2031-01-20T12:00:00Z'),
+  ('0b110aaa-0000-4000-8000-000000000002', '0000000a-0000-4000-8000-000000000001',
+   '000e0aaa-0000-4000-8000-000000000001', 'CON-2031-0002', 'completed',  7000.00, '2031-01-25T12:00:00Z'),
+  ('0b110aaa-0000-4000-8000-000000000003', '0000000a-0000-4000-8000-000000000001',
+   '000e0aaa-0000-4000-8000-000000000001', 'CON-2031-0003', 'cancelled', 99999.00, '2031-01-22T12:00:00Z'),
+  ('0b110aaa-0000-4000-8000-000000000004', '0000000a-0000-4000-8000-000000000001',
+   '000e0aaa-0000-4000-8000-000000000001', 'CON-2031-0004', 'active',    12345.00, '2031-02-01T00:00:00Z'),
+  ('0b110aaa-0000-4000-8000-000000000005', '0000000a-0000-4000-8000-000000000001',
+   '000e0aaa-0000-4000-8000-000000000001', 'CON-2031-0005', 'active',      100.00, '2031-01-01T00:00:00Z'),
+  ('0b110aaa-0000-4000-8000-000000000006', '0000000a-0000-4000-8000-000000000001',
+   '000e0aaa-0000-4000-8000-000000000001', 'CON-2031-0006', 'active',     4444.00, '2030-12-31T23:59:59Z'),
+  ('0b110bbb-0000-4000-8000-000000000001', '0000000b-0000-4000-8000-000000000002',
+   '000e0bbb-0000-4000-8000-000000000002', 'CON-2031-0001', 'active',    80000.00, '2031-01-20T12:00:00Z');
+insert into change_orders (id, organization_id, project_id, change_order_number, status, cost_change, approved_at) values
+  ('0b120aaa-0000-4000-8000-000000000001', '0000000a-0000-4000-8000-000000000001',
+   '000e0aaa-0000-4000-8000-000000000001', 'CO-2031-0001', 'approved',     1500.00, '2031-01-21T12:00:00Z'),
+  ('0b120aaa-0000-4000-8000-000000000002', '0000000a-0000-4000-8000-000000000001',
+   '000e0aaa-0000-4000-8000-000000000001', 'CO-2031-0002', 'incorporated',  500.00, '2031-01-23T12:00:00Z'),
+  ('0b120aaa-0000-4000-8000-000000000003', '0000000a-0000-4000-8000-000000000001',
+   '000e0aaa-0000-4000-8000-000000000001', 'CO-2031-0003', 'declined',     9999.00, '2031-01-24T12:00:00Z'),
+  ('0b120aaa-0000-4000-8000-000000000004', '0000000a-0000-4000-8000-000000000001',
+   '000e0aaa-0000-4000-8000-000000000001', 'CO-2031-0004', 'approved',     -200.00, '2031-01-26T12:00:00Z'),
+  ('0b120bbb-0000-4000-8000-000000000001', '0000000b-0000-4000-8000-000000000002',
+   '000e0bbb-0000-4000-8000-000000000002', 'CO-2031-0001', 'approved',      777.00, '2031-01-21T12:00:00Z');
+
+set role app_user;
+select set_config('request.jwt.claims',
+  '{"sub":"00000aaa-0000-4000-8000-000000000001","org":"0000000a-0000-4000-8000-000000000001"}',
+  false);
+
+do $$
+declare total numeric;
+begin
+  -- The contracts half of the basis, as the app queries it: status filter,
+  -- inclusive start, exclusive end.
+  select coalesce(sum(contract_value), 0) into total from contracts
+    where organization_id = '0000000a-0000-4000-8000-000000000001'
+      and status in ('active', 'completed')
+      and activated_at >= '2031-01-01T00:00:00Z' and activated_at < '2031-02-01T00:00:00Z';
+  if total <> 57100.00 then
+    raise exception 'FAIL: booked contracts should be 57100.00 (50000 + 7000 + 100), got %', total;
+  end if;
+  raise notice 'PASS: booked contracts count active and completed work signed in the window, once';
+
+  -- The change-order half: approved and incorporated count, a credit reduces it.
+  select coalesce(sum(cost_change), 0) into total from change_orders
+    where organization_id = '0000000a-0000-4000-8000-000000000001'
+      and status in ('approved', 'incorporated')
+      and approved_at >= '2031-01-01T00:00:00Z' and approved_at < '2031-02-01T00:00:00Z';
+  if total <> 1800.00 then
+    raise exception 'FAIL: booked change orders should be 1800.00 (1500 + 500 - 200), got %', total;
+  end if;
+  raise notice 'PASS: booked change orders count approved and incorporated ones, credits included';
+end $$;
+
+reset role;
+set role app_user;
+select set_config('request.jwt.claims',
+  '{"sub":"00000bbb-0000-4000-8000-000000000002","org":"0000000b-0000-4000-8000-000000000002"}',
+  false);
+
+do $$
+declare total numeric;
+begin
+  -- Org B asking for Org A's basis by id gets nothing — the bill cannot be
+  -- computed across the boundary even by a query that names the other tenant.
+  select coalesce(sum(contract_value), 0) into total from contracts
+    where organization_id = '0000000a-0000-4000-8000-000000000001'
+      and status in ('active', 'completed')
+      and activated_at >= '2031-01-01T00:00:00Z' and activated_at < '2031-02-01T00:00:00Z';
+  if total <> 0 then raise exception 'FAIL: Org B could sum Org A''s signed work: %', total; end if;
+  select coalesce(sum(cost_change), 0) into total from change_orders
+    where organization_id = '0000000a-0000-4000-8000-000000000001'
+      and status in ('approved', 'incorporated')
+      and approved_at >= '2031-01-01T00:00:00Z' and approved_at < '2031-02-01T00:00:00Z';
+  if total <> 0 then raise exception 'FAIL: Org B could sum Org A''s change orders: %', total; end if;
+  raise notice 'PASS: the usage-fee basis is invisible across organisations';
+
+  -- And its own comes through intact.
+  select coalesce(sum(contract_value), 0) into total from contracts
+    where organization_id = '0000000b-0000-4000-8000-000000000002'
+      and status in ('active', 'completed')
+      and activated_at >= '2031-01-01T00:00:00Z' and activated_at < '2031-02-01T00:00:00Z';
+  if total <> 80000.00 then raise exception 'FAIL: Org B''s own booked contracts should be 80000.00, got %', total; end if;
+  raise notice 'PASS: an organisation sees its own usage-fee basis in full';
+end $$;
+
 reset role;
 select 'ALL RLS ASSERTIONS PASSED' as result;

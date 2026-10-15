@@ -98,6 +98,14 @@ Two rules that follow from it:
 Email (Task 32) and calendar (Task 33) build on this seam behind interfaces, so a
 vendor swap is configuration, not a rewrite.
 
+`stripe/` is the same shape for platform billing: `stripe-core.ts` decides
+(what is configured, what a Stripe status means here, what usage line a renewal
+invoice carries), `client.ts` is the only file that imports the Stripe SDK,
+`webhook.ts` applies a verified event, and the route is
+`src/app/api/webhooks/stripe/`. Stripe is the payment rail; the pricing math stays
+in `billing-core.ts`, and a subscription's status is moved only by a webhook —
+never by the app on its own say-so.
+
 ## Skills
 
 Four skills in `.claude/skills/` cover the recurring procedures. Use them. The bid-writing skills
@@ -203,7 +211,7 @@ docs/                               PRD, architecture, full 50-table schema
 Domains built: `ai-foreman` `auth` `calendar` `catalog` `change-orders` `clients` `contracts`
 `costing` `daily-logs` `dashboard` `email` `estimates` `financials` `google` `intake` `invoices`
 `leads` `media` `projects` `proposals` `schedule` `scopes` `signatures`
-`site-visits` `storage` `tasks` `texas-tax`
+`site-visits` `storage` `stripe` `tasks` `texas-tax`
 
 ---
 
@@ -327,13 +335,22 @@ Not "Warning: incomplete data." Not "Invalid range."
    host its HTTP connector — nothing is deployed. Set the property type and the
    state on every new property — the existing ones were set on 2026-09-30. The
    estimate and invoice tax checks run only when they know both.
+7. **Stripe is built but not connected.** No call to Stripe has been made from
+   this code. To go live: `pnpm stripe:setup --live` with the secret key (it
+   creates the four products and prices and prints the four `STRIPE_PRICE_*`
+   lines), set those plus `STRIPE_SECRET_KEY` on Vercel, register
+   `<app URL>/api/webhooks/stripe` in the Stripe Dashboard and set its signing
+   secret as `STRIPE_WEBHOOK_SECRET`, redeploy, then subscribe once and watch the
+   first renewal invoice's log line. Two decisions are open on the agent log:
+   the usage-fee basis (thread 13) and what, if anything, the app withholds
+   when a subscription is overdue or canceled (thread 14) — today, nothing.
 
 ---
 
 ## Current state
 
-- **957 unit tests** across 51 files
-- **216 real-Postgres RLS assertions**
+- **1010 unit tests** across 53 files
+- **226 real-Postgres RLS assertions**
 - **Texas tax ledger:** 44 facts — 38 confirmed, 5 partly confirmed, 1 not
   settled — checked 2026-09-26 (two on 2026-09-27) through search excerpts of
   Comptroller pages and the Tax Code (the Comptroller's site itself is blocked

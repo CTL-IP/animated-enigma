@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { eq } from 'drizzle-orm';
-import { Users } from 'lucide-react';
+import { CreditCard, Users } from 'lucide-react';
 import { getDb, schema } from '@/db';
 import { getAuthContext } from '@/lib/auth/session';
 import { can } from '@/lib/auth/rbac';
@@ -72,7 +72,10 @@ export default async function SettingsPage({
       <Card>
         <CardHeader className="flex-row items-center justify-between gap-2">
           <CardTitle className="text-base">Team</CardTitle>
-          <Link href="/settings/team" className={buttonVariants({ variant: 'outline', size: 'sm' })}>
+          <Link
+            href="/settings/team"
+            className={buttonVariants({ variant: 'outline', size: 'sm' })}
+          >
             <Users className="h-4 w-4" />
             Manage team
           </Link>
@@ -80,6 +83,28 @@ export default async function SettingsPage({
         <CardContent>
           <p className="text-sm text-muted-foreground">
             Invite people and set what each of them can see and do.
+          </p>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="flex-row items-center justify-between gap-2">
+          <CardTitle className="text-base">Billing</CardTitle>
+          {mayManage ? (
+            <Link
+              href="/settings/billing"
+              className={buttonVariants({ variant: 'outline', size: 'sm' })}
+            >
+              <CreditCard className="h-4 w-4" />
+              Manage billing
+            </Link>
+          ) : null}
+        </CardHeader>
+        <CardContent>
+          <p className="text-sm text-muted-foreground">
+            {mayManage
+              ? 'The plan this company is on, the card Stripe charges, and the invoices.'
+              : 'Only an owner or administrator can see or change the subscription.'}
           </p>
         </CardContent>
       </Card>

@@ -127,7 +127,7 @@ export function RateControls({
         <label className="mb-1 block text-xs text-muted-foreground">Estimate name (optional)</label>
         <Input name="name" defaultValue={version.name ?? ''} placeholder="e.g. Better" />
       </div>
-      <div className="grid grid-cols-3 gap-2">
+      <div className="grid min-w-0 grid-cols-3 gap-2">
         <RateField label="Overhead %" name="overheadPct" defaultValue={pct(version.overheadPct)} />
         <RateField label="Profit %" name="profitPct" defaultValue={pct(version.profitPct)} />
         <RateField label="Tax %" name="taxRate" defaultValue={pct(version.taxRate)} />
@@ -149,7 +149,7 @@ function RateField({
   defaultValue: string;
 }) {
   return (
-    <div>
+    <div className="min-w-0">
       <label className="mb-1 block text-xs text-muted-foreground">{label}</label>
       {/* Hundredths, to match what the column keeps: most DFW addresses are
           8.25%, which a 0.1 step refused outright. */}

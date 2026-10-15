@@ -79,6 +79,24 @@ is a public-shaped file in a repository. Reference a variable by name only.
 
 ## Log
 
+## 2026-10-15 — On a phone the estimate lines stay still
+**By:** Cursor (session on `cursor/estimate-mobile-overflow-16c5`) · **Commit:** the one carrying this entry
+
+Review on PR #32: "pages stay still." The first fix kept the page from
+growing past the screen, but the line table still slid sideways inside
+its box. On a phone that is the page moving under a thumb.
+
+Below `md` the lines are cards — description, type, qty, unit cost, line
+cost, and the edit and delete actions — so nothing has to slide. From
+`md` up the table is back, and only that box scrolls. Same forms either
+way.
+
+Verified again on the throwaway local database, Chromium: at 360, 390,
+and 430 the page `scrollWidth` equals the viewport and no visible element
+sticks past the screen. At 768 the cards are hidden, the table is shown,
+and `scrollWidth` is 768. typecheck and lint clean; 1010 unit tests in
+53 files; production build succeeded.
+
 ## 2026-10-15 — Estimate page no longer scrolls sideways on a phone
 **By:** Cursor (session on `cursor/estimate-mobile-overflow-16c5`) · **Commit:** the one carrying this entry
 

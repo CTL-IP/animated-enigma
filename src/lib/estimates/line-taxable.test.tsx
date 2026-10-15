@@ -75,7 +75,8 @@ function savedAdd(form: HTMLFormElement) {
 }
 
 function openEditor(): HTMLFormElement {
-  fireEvent.click(screen.getByRole('button', { name: 'Edit line' }));
+  // Phone cards and the wide table each carry an Edit control. Same form.
+  fireEvent.click(screen.getAllByRole('button', { name: 'Edit line' })[0]!);
   return screen.getByRole('button', { name: 'Save' }).closest('form')!;
 }
 

@@ -60,6 +60,7 @@ is a public-shaped file in a repository. Reference a variable by name only.
 | 12 | Approve the marketing add-on in `docs/marketing-module.md`: the staged plan, how client marketing consent is captured, who may approve a post, and whether Marketing becomes a thirteenth navigation section. Recommendation on file: staged; no new section before the review queue is in use. | 2026-10-13 | Owner |
 | 13 | Confirm the usage-fee basis. The Stripe build charges the percentage on **work signed in the period, counted once**: contracts activated in the window plus change orders approved in it (`bookedContractValue`). Monthly cadence: the month that just ended. Annual: the twelve months ending at each anniversary. The other reading — a percentage of everything currently active, every month — would charge a year-long job twelve times at 3%, which is not what "3% a month or 6% a year" says. If the basis should be something else (total active value, invoiced value, collected value), it is one query and one pure function. | 2026-10-15 | Owner |
 | 14 | What the app withholds when a subscription is overdue or canceled. Today nothing is gated: every screen works whatever `organization_subscriptions.status` says, and the Billing screen just shows the state. Options: nothing (invoice and chase by hand), a banner, or a block on new estimates/contracts after N days overdue. | 2026-10-15 | Owner |
+| 15 | Does any job site need a tax rate with three decimals, like 8.125%? Estimate rates are stored as a fraction to four places, so the Pricing form now takes two decimals (8.25) and refuses a third rather than round it. The tax ledger records only the 6.25% state rate, the 2% local cap and the 8.25% maximum — nothing on finer steps — so this hasn't been checked. If a rate does need three decimals, `estimate_versions.tax_rate` needs a fifth decimal place (a schema change). | 2026-10-15 | Owner |
 
 ### Settled
 
@@ -79,23 +80,56 @@ is a public-shaped file in a repository. Reference a variable by name only.
 
 ## Log
 
-## 2026-10-15 — On a phone the estimate lines stay still
-**By:** Cursor (session on `cursor/estimate-mobile-overflow-16c5`) · **Commit:** the one carrying this entry
+## 2026-10-15 — Estimate Tax % holds 8.25%, and saving rates no longer rewrites it
+**By:** Claude (session on `claude/loving-pasteur-hyl6er`) · **Commit:** the one carrying this entry
 
-Review on PR #32: "pages stay still." The first fix kept the page from
-growing past the screen, but the line table still slid sideways inside
-its box. On a phone that is the page moving under a thumb.
+**The bug, found by driving the real estimate screen on 2026-10-01.**
+- The Pricing form showed a stored rate rounded to one decimal, so 8.25% read
+  8.3. Even the 6.25% state rate read 6.3.
+- Its 0.1 step made the browser refuse 8.25 outright: "the two nearest valid
+  values are 8.2 and 8.3". Most DFW addresses are 8.25%.
+- Saving overhead or profit sent the rounded figure back, so the tax rate
+  quietly became 8.3%. That is above the 8.25% Texas maximum, and every client
+  on that estimate is over-charged.
 
-Below `md` the lines are cards — description, type, qty, unit cost, line
-cost, and the edit and delete actions — so nothing has to slide. From
-`md` up the table is back, and only that box scrolls. Same forms either
-way.
+**The fix.**
+- `rateFieldValue` (`estimate-core.ts`) shows a stored fraction exactly, to the
+  column's four places: 0.0825 → "8.25".
+- The rate fields step in hundredths (`estimate-controls.tsx`).
+- `ratesSchema` (`schema.ts`) stores hundredths exactly and refuses anything
+  finer, naming the field: "Tax % takes two decimal places at most — 8.25, not
+  8.125."
+- Overhead and profit get the same rule; they share the parser and the
+  four-place columns.
+- The line form's waste % keeps its old parser; it wasn't part of this.
 
-Verified again on the throwaway local database, Chromium: at 360, 390,
-and 430 the page `scrollWidth` equals the viewport and no visible element
-sticks past the screen. At 768 the cards are hidden, the table is shown,
-and `scrollWidth` is 768. typecheck and lint clean; 1010 unit tests in
-53 files; production build succeeded.
+**Rejected:** rounding a finer rate to fit. The column already does that
+silently (8.125 would be kept as 8.13), and a tax rate that changes itself is
+the bug being fixed. Whether any rate needs three decimals is open thread 15.
+
+**Tests.** 18 new: 16 in `src/lib/estimates/rate-fields.test.tsx`, which render
+the real Pricing form and read it the way `updateRates` does, and 2 for
+`rateFieldValue`. On the old code, 12 of the 16 fail.
+- **Quarter-point rates:** saving untouched changed every one tested — 6.25,
+  6.75, 7.25, 7.75 and 8.25.
+- **7%, 8% and 8.2%:** these survived.
+- **8.2's test:** it fails on the old code only on float noise (`0.08199999999999999`)
+  that the column would round away.
+
+**Checked on the real screen.**
+- **Setup:** the dev server, a local Postgres with the 51 migrations and a
+  seeded draft estimate at 8.25%, a stand-in for Supabase sign-in, driven in
+  Chromium.
+- **What it showed:**
+  - the field shows 8.25;
+  - saving overhead at 10% left `tax_rate` at 0.0825 in the database;
+  - 8.25 is a valid entry;
+  - 8.125 is refused by the browser and, with the browser's check switched off,
+    by the server, with the message above.
+
+**Not changed:** existing estimates. Any rate saved as 8.2 or 8.3 because 8.25
+couldn't be entered is still stored that way; checking them is the owner's
+call.
 
 ## 2026-10-15 — Estimate page no longer scrolls sideways on a phone
 **By:** Cursor (session on `cursor/estimate-mobile-overflow-16c5`) · **Commit:** the one carrying this entry

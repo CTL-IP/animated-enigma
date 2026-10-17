@@ -50,6 +50,9 @@
         </svg>
         {{ ad.location }}
         <span class="ml-auto bg-gray-100 px-2 py-0.5 rounded capitalize">{{ ad.platform }}</span>
+        {% if ad.facebook_post_id %}
+        <span class="bg-green-100 text-green-700 px-2 py-0.5 rounded">On Facebook</span>
+        {% endif %}
       </div>
     </div>
 

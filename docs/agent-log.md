@@ -79,6 +79,13 @@ is a public-shaped file in a repository. Reference a variable by name only.
 
 ## Log
 
+## 2026-10-17 — Facebook Page posting restored onto the foreman branch
+**By:** Cursor agent · **Commit:** the one carrying this entry
+
+The Facebook Page posting work for legacy ContractorAds was committed locally on `claude/tactical-foreman-build-m7i3ng` and never reached Origin: the push guard on that machine returned invalid JSON and the command was stopped. The cloud move did not bring that local commit. The same change is restored here: connect one Page, publish an ad's headline and body, and record the post id. A Page post is not a paid ad.
+
+Checked without a Meta app: `/facebook` says no Page is connected and the app id is unset, `/facebook/start` redirects to that notice, a blank ad refuses to post, and an ad with copy offers "Set up Facebook". No call to Facebook was made. Page tokens are stored in the local SQLite file as plaintext, which is how that draft was written; they are not encrypted.
+
 ## 2026-10-15 — Installable on phones and desktops: web manifest and icons
 **By:** Claude (session on `claude/tactical-foreman-build-m7i3ng`) · **Commit:** the one carrying this entry
 

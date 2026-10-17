@@ -6,13 +6,16 @@ from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 
 from .config import STATIC_DIR, ensure_dirs
-from .database import engine
+from .database import engine, ensure_schema
 from . import models
 from .routes import ads as ads_router
+from .routes import facebook as facebook_router
 
 ensure_dirs()
 models.Base.metadata.create_all(bind=engine)
+ensure_schema()
 
 app = FastAPI(title="ContractorAds", description="Interactive Ad Generator for General Contractors")
 app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 app.include_router(ads_router.router)
+app.include_router(facebook_router.router)

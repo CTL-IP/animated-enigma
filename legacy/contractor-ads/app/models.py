@@ -20,5 +20,36 @@ class Ad(Base):
     image_path = Column(String(500))
     platform = Column(String(50), default="facebook")
     status = Column(String(20), default="draft")
+    facebook_post_id = Column(String(128))
+    facebook_post_url = Column(String(500))
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+
+class FacebookPage(Base):
+    """The one Page this machine is allowed to publish to."""
+
+    __tablename__ = "facebook_pages"
+
+    id = Column(Integer, primary_key=True)
+    page_id = Column(String(64), nullable=False, unique=True)
+    page_name = Column(String(200), nullable=False)
+    access_token = Column(Text, nullable=False)
+    connected_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
+class FacebookChoice(Base):
+    """Pages returned by Facebook Login, kept until Patrick picks one."""
+
+    __tablename__ = "facebook_choices"
+
+    page_id = Column(String(64), primary_key=True)
+    page_name = Column(String(200), nullable=False)
+    access_token = Column(Text, nullable=False)
+
+
+class OAuthState(Base):
+    __tablename__ = "oauth_states"
+
+    state = Column(String(80), primary_key=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())

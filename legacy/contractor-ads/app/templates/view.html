@@ -24,6 +24,25 @@
     Check the <code>ANTHROPIC_API_KEY</code> in <code>.env</code> and the server's internet connection
     (details are in the server window).
   </div>
+  {% elif notice == 'posted' %}
+  <div class="mb-6 rounded-lg border border-green-200 bg-green-50 text-green-800 text-sm px-4 py-3">
+    Posted to Facebook.
+    {% if ad.facebook_post_url %}
+    <a href="{{ ad.facebook_post_url }}" class="font-semibold underline" target="_blank" rel="noopener">View the post</a>
+    {% endif %}
+  </div>
+  {% elif notice == 'post_failed' %}
+  <div class="mb-6 rounded-lg border border-red-200 bg-red-50 text-red-800 text-sm px-4 py-3">
+    Facebook did not publish this ad.{% if detail %} {{ detail }}{% endif %}
+  </div>
+  {% elif notice == 'not_connected' %}
+  <div class="mb-6 rounded-lg border border-amber-200 bg-amber-50 text-amber-900 text-sm px-4 py-3">
+    Connect a Facebook Page before posting. <a href="/facebook" class="font-semibold underline">Open Facebook</a>
+  </div>
+  {% elif notice == 'no_copy' %}
+  <div class="mb-6 rounded-lg border border-amber-200 bg-amber-50 text-amber-900 text-sm px-4 py-3">
+    Generate the copy first. A blank ad is not posted.
+  </div>
   {% endif %}
 
   <!-- Business info card -->
@@ -179,6 +198,28 @@
       <p class="font-medium text-gray-600">No ad copy generated yet</p>
       <p class="text-sm mt-1">Click "Generate with AI" to write this ad automatically.</p>
     </div>
+    {% endif %}
+  </div>
+
+  <!-- Publish -->
+  <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
+    <h2 class="font-bold text-gray-800">Send to Facebook</h2>
+    <p class="text-sm text-gray-500 mt-1">Publishes this headline and body on your Page. It does not buy an ad.</p>
+    {% if not ad.ad_headline %}
+    <p class="text-sm text-gray-600 mt-3">Generate the copy first.</p>
+    {% elif not facebook_ready %}
+    <a href="/facebook" class="inline-block mt-4 bg-gray-900 hover:bg-black text-white font-semibold px-4 py-2 rounded-lg text-sm">Set up Facebook</a>
+    {% elif not facebook_page %}
+    <a href="/facebook" class="inline-block mt-4 bg-gray-900 hover:bg-black text-white font-semibold px-4 py-2 rounded-lg text-sm">Connect a Page</a>
+    {% else %}
+    <form method="POST" action="/ads/{{ ad.id }}/post" class="mt-4 flex flex-wrap items-center gap-3">
+      <button type="submit" class="bg-orange-500 hover:bg-orange-600 text-white font-semibold px-4 py-2 rounded-lg text-sm">
+        {% if ad.facebook_post_id %}Post again to {{ facebook_page.page_name }}{% else %}Post to {{ facebook_page.page_name }}{% endif %}
+      </button>
+      {% if ad.facebook_post_url %}
+      <a href="{{ ad.facebook_post_url }}" class="text-sm font-semibold text-orange-600 hover:text-orange-700" target="_blank" rel="noopener">View the live post</a>
+      {% endif %}
+    </form>
     {% endif %}
   </div>
 

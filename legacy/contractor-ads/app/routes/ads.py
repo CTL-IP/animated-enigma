@@ -13,7 +13,7 @@ from typing import Optional
 
 from ..config import TEMPLATES_DIR, UPLOAD_DIR, resolve_media
 from ..database import get_db
-from ..models import Ad
+from ..models import Ad, FacebookPage
 
 router = APIRouter()
 templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
@@ -132,11 +132,26 @@ async def create_ad(
 
 
 @router.get("/ads/{ad_id}", response_class=HTMLResponse)
-async def view_ad(request: Request, ad_id: int, notice: Optional[str] = None, db: Session = Depends(get_db)):
+async def view_ad(
+    request: Request,
+    ad_id: int,
+    notice: Optional[str] = None,
+    detail: Optional[str] = None,
+    db: Session = Depends(get_db),
+):
     ad = db.query(Ad).filter(Ad.id == ad_id).first()
     if not ad:
         raise HTTPException(status_code=404, detail="Ad not found")
-    return templates.TemplateResponse(request, "view.html", context={"ad": ad, "platforms": PLATFORMS, "notice": notice})
+    page = db.query(FacebookPage).order_by(FacebookPage.id.desc()).first()
+    ready = bool((os.environ.get("META_APP_ID") or "").strip() and (os.environ.get("META_APP_SECRET") or "").strip())
+    return templates.TemplateResponse(request, "view.html", context={
+        "ad": ad,
+        "platforms": PLATFORMS,
+        "notice": notice,
+        "detail": (detail or "")[:300],
+        "facebook_page": page,
+        "facebook_ready": ready,
+    })
 
 
 @router.get("/ads/{ad_id}/edit", response_class=HTMLResponse)
@@ -200,8 +215,8 @@ async def update_ad(
     return RedirectResponse(url=f"/ads/{ad_id}", status_code=303)
 
 
-def generate_ai_copy(ad: Ad, api_key: str) -> dict:
-    client = anthropic.Anthropic(api_key=api_key)
+def generate_ai_copy(ad: Ad, api_key: Optional[str] = None) -> dict:
+    client = anthropic.Anthropic(api_key=api_key) if api_key else anthropic.Anthropic()
 
     text_prompt = f"""You are an expert copywriter specializing in local service advertising for contractors.
 
@@ -259,18 +274,25 @@ async def generate_ad_copy(
     if not ad:
         raise HTTPException(status_code=404, detail="Ad not found")
 
-    api_key = os.environ.get("ANTHROPIC_API_KEY")
+    api_key = os.environ.get("ANTHROPIC_API_KEY") or None
+    data = None
+    notice = "builtin"
     if api_key:
         try:
             data = generate_ai_copy(ad, api_key)
             notice = "ai"
         except Exception:
-            logger.exception("Claude AI generation failed; using built-in copy writer")
+            logger.exception("Claude AI generation with ANTHROPIC_API_KEY failed")
+    if data is None:
+        try:
+            data = generate_ai_copy(ad, None)
+            notice = "ai"
+        except Exception:
+            logger.exception("Claude profile generation failed; using built-in copy writer")
+            if ad.ad_headline:
+                return RedirectResponse(url=f"/ads/{ad_id}?notice=ai_failed", status_code=303)
             data = generate_fallback_copy(ad)
-            notice = "ai_failed"
-    else:
-        data = generate_fallback_copy(ad)
-        notice = "builtin"
+            notice = "ai_failed" if api_key else "builtin"
 
     ad.ad_headline = data.get("headline", "")
     ad.ad_body = data.get("body", "")

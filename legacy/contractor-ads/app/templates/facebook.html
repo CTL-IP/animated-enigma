@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block title %}Facebook — ContractorAds{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto">
+  <a href="/" class="text-gray-500 hover:text-gray-700 text-sm">← Back to ads</a>
+  <h1 class="text-3xl font-bold text-gray-900 mt-2">Post to Facebook</h1>
+  <p class="text-gray-500 mt-2">Publishes the ad on a Facebook Page you manage. This is a Page post. It does not spend ad money.</p>
+
+  {% if notice == 'connected' %}
+  <div class="mt-6 rounded-lg border border-green-200 bg-green-50 text-green-800 text-sm px-4 py-3">
+    Connected to <strong>{{ page.page_name }}</strong>. Open an ad and post it.
+  </div>
+  {% elif notice == 'disconnected' %}
+  <div class="mt-6 rounded-lg border border-gray-200 bg-white text-gray-700 text-sm px-4 py-3">
+    Facebook is disconnected. Nothing was deleted from Facebook.
+  </div>
+  {% elif notice == 'needs_app' %}
+  <div class="mt-6 rounded-lg border border-amber-200 bg-amber-50 text-amber-900 text-sm px-4 py-3">
+    Add the Meta app id and secret first. Steps are below.
+  </div>
+  {% elif notice == 'no_pages' %}
+  <div class="mt-6 rounded-lg border border-amber-200 bg-amber-50 text-amber-900 text-sm px-4 py-3">
+    That Facebook login does not manage a Page. Create a Page, or sign in as an admin of the Page.
+  </div>
+  {% elif notice == 'denied' %}
+  <div class="mt-6 rounded-lg border border-red-200 bg-red-50 text-red-800 text-sm px-4 py-3">
+    Facebook did not connect.{% if detail %} {{ detail }}{% endif %}
+  </div>
+  {% endif %}
+
+  {% if page %}
+  <div class="mt-6 bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+    <p class="text-sm text-gray-500">Publishing to</p>
+    <p class="text-xl font-bold text-gray-900 mt-1">{{ page.page_name }}</p>
+    <div class="mt-4 flex gap-3">
+      <a href="/" class="bg-orange-500 hover:bg-orange-600 text-white font-semibold px-4 py-2 rounded-lg text-sm">Choose an ad</a>
+      <form method="POST" action="/facebook/disconnect">
+        <button type="submit" class="bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold px-4 py-2 rounded-lg text-sm">Disconnect</button>
+      </form>
+    </div>
+  </div>
+  {% elif configured %}
+  <div class="mt-6 bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+    <p class="text-gray-700 text-sm">Sign in with the Facebook account that manages the Page. The app can stay in Development mode if you are an admin of both the Meta app and the Page.</p>
+    <a href="/facebook/connect" class="inline-block mt-4 bg-gray-900 hover:bg-black text-white font-semibold px-4 py-2 rounded-lg text-sm">Connect Facebook</a>
+  </div>
+  {% else %}
+  <div class="mt-6 bg-white rounded-xl shadow-sm border border-gray-200 p-6 text-sm text-gray-700 space-y-3">
+    <p class="font-semibold text-gray-900">One-time setup</p>
+    <ol class="list-decimal pl-5 space-y-2">
+      <li>Create a Meta app at developers.facebook.com and add Facebook Login.</li>
+      <li>Set the valid OAuth redirect URI to <code class="bg-gray-100 px-1 rounded">{{ redirect_uri }}</code></li>
+      <li>Put <code class="bg-gray-100 px-1 rounded">META_APP_ID</code> and <code class="bg-gray-100 px-1 rounded">META_APP_SECRET</code> in <code class="bg-gray-100 px-1 rounded">legacy/contractor-ads/.env</code></li>
+      <li>Restart this server, then come back and connect the Page.</li>
+    </ol>
+    <p>Permissions used: pages_show_list, pages_manage_posts, pages_read_engagement.</p>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

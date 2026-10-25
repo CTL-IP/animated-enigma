@@ -29,14 +29,15 @@ These come from Patrick and are not negotiable.
 
 ### Git
 
-- Branch: **`claude/trusting-tesla-8u5367`**. Never push elsewhere without
-  explicit permission. The hooks read it from `.claude/hooks/designated-branch`
-  (one cleared branch per line); when Patrick names a new branch, that file and
-  this line change together. A session may also push the `claude/*` branch it
-  was assigned and is standing on without being listed — that is what the guard
-  treats as "its own" — but never `main`, and never anyone else's.
-- `git push -u origin claude/trusting-tesla-8u5367`, retrying up to four
-  times on network failure with 2s/4s/8s/16s backoff.
+- Cleared branches, one per line in `.claude/hooks/designated-branch`:
+  **`claude/trusting-tesla-8u5367`** and **`cursor/saas-sell-1cbb`**. Never
+  push elsewhere without explicit permission. When Patrick names a new branch,
+  that file and this list change together. A session may also push the
+  `claude/*` branch it was assigned and is standing on without being listed —
+  that is what the guard treats as "its own" — but never `main`, and never
+  anyone else's.
+- `git push -u origin <the cleared branch this session is on>`, retrying up to
+  four times on network failure with 2s/4s/8s/16s backoff.
 - Commit trailer, every time:
   ```
   Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>

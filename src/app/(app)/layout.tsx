@@ -4,6 +4,8 @@ import { MobileNav } from '@/components/layout/mobile-nav';
 import { Header } from '@/components/layout/header';
 import { Breadcrumbs } from '@/components/layout/breadcrumbs';
 import { getAuthContext } from '@/lib/auth/session';
+import { loadProductAccess } from '@/lib/billing/access';
+import { AccessBanner } from '@/components/billing/access-banner';
 
 /**
  * Authenticated application shell: desktop sidebar + top header + mobile bottom
@@ -17,6 +19,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   if (ctx.configured && !ctx.userId) redirect('/login');
   if (ctx.configured && ctx.dbAvailable && ctx.userId && !ctx.activeOrg) redirect('/onboarding');
+
+  const access =
+    ctx.dbAvailable && ctx.activeOrg ? await loadProductAccess(ctx.activeOrg.organizationId) : null;
 
   const account: SidebarAccount = {
     email: ctx.email,
@@ -34,6 +39,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       <div className="flex min-w-0 flex-1 flex-col">
         <Header account={{ orgName: account.activeOrgName, email: account.email }} />
         <main className="flex-1 px-4 pb-24 pt-6 md:px-8 md:pb-8">
+          {access ? <AccessBanner access={access} /> : null}
           <Breadcrumbs />
           {children}
         </main>

@@ -13,6 +13,8 @@ const PUBLIC_PATHS = [
   '/intake',
   '/proposal',
   '/change-order',
+  '/terms',
+  '/privacy',
 ];
 
 const PROTECTED_PREFIXES = [

@@ -6,6 +6,7 @@ import { and, eq, sql } from 'drizzle-orm';
 import { getDb, schema } from '@/db';
 import { logger } from '@/lib/logger';
 import { getAuthContext, type AuthContext } from '@/lib/auth/session';
+import { blockedProductWrite } from '@/lib/billing/access';
 import { assertCan } from '@/lib/auth/rbac';
 import type { FormState } from '@/lib/auth/actions';
 import { addDays, isDay, today } from '@/lib/schedule/schedule-core';
@@ -39,6 +40,8 @@ async function requireTasksWrite(): Promise<
   } catch {
     return { ok: false, error: 'You do not have permission to change tasks.' };
   }
+  const blocked = await blockedProductWrite(ctx.activeOrg.organizationId);
+  if (blocked) return { ok: false, error: blocked };
   return { ok: true, orgId: ctx.activeOrg.organizationId, userId: ctx.userId };
 }
 
@@ -159,12 +162,7 @@ export async function updateTask(_prev: FormState, formData: FormData): Promise<
       await tx
         .update(schema.projectTasks)
         .set({
-          scheduleItemId: await verifiedScheduleItem(
-            tx,
-            orgId,
-            existing.projectId,
-            scheduleItemId,
-          ),
+          scheduleItemId: await verifiedScheduleItem(tx, orgId, existing.projectId, scheduleItemId),
           title: input.title.trim(),
           description: input.description,
           assigneeId: await verifiedMember(tx, orgId, assigneeId),
@@ -270,7 +268,9 @@ export async function pushTaskDueDate(formData: FormData): Promise<void> {
         startDate: schema.projectTasks.startDate,
       })
       .from(schema.projectTasks)
-      .where(and(eq(schema.projectTasks.organizationId, orgId), eq(schema.projectTasks.id, taskId)));
+      .where(
+        and(eq(schema.projectTasks.organizationId, orgId), eq(schema.projectTasks.id, taskId)),
+      );
     if (!task) return;
 
     // An undated task gets its first due date relative to today, which is what
@@ -280,12 +280,16 @@ export async function pushTaskDueDate(formData: FormData): Promise<void> {
     if (!dueDate) return;
     // Keep the range valid rather than letting the CHECK reject the update.
     const startDate =
-      task.startDate && isDay(task.startDate) && task.startDate > dueDate ? dueDate : task.startDate;
+      task.startDate && isDay(task.startDate) && task.startDate > dueDate
+        ? dueDate
+        : task.startDate;
 
     await db
       .update(schema.projectTasks)
       .set({ dueDate, startDate })
-      .where(and(eq(schema.projectTasks.organizationId, orgId), eq(schema.projectTasks.id, taskId)));
+      .where(
+        and(eq(schema.projectTasks.organizationId, orgId), eq(schema.projectTasks.id, taskId)),
+      );
     projectId = task.projectId;
   } catch (error) {
     logger.error('tasks.push_due_date_failed', { error: String(error), taskId });
@@ -332,10 +336,7 @@ export async function toggleChecklistItem(formData: FormData): Promise<void> {
 }
 
 /** Appends checklist items to an existing task from a pasted block. */
-export async function addChecklistItems(
-  _prev: FormState,
-  formData: FormData,
-): Promise<FormState> {
+export async function addChecklistItems(_prev: FormState, formData: FormData): Promise<FormState> {
   const auth = await requireTasksWrite();
   if (!auth.ok) return { error: auth.error };
   const { orgId } = auth;
@@ -413,10 +414,7 @@ export async function deleteChecklistItem(formData: FormData): Promise<void> {
 }
 
 /** Records that one task waits on another. */
-export async function addTaskDependency(
-  _prev: FormState,
-  formData: FormData,
-): Promise<FormState> {
+export async function addTaskDependency(_prev: FormState, formData: FormData): Promise<FormState> {
   const auth = await requireTasksWrite();
   if (!auth.ok) return { error: auth.error };
   const { orgId } = auth;
@@ -591,9 +589,9 @@ export async function seedPunchList(formData: FormData): Promise<void> {
 
 class CycleError extends Error {}
 
-type Executor = ReturnType<typeof getDb> | Parameters<
-  Parameters<ReturnType<typeof getDb>['transaction']>[0]
->[0];
+type Executor =
+  | ReturnType<typeof getDb>
+  | Parameters<Parameters<ReturnType<typeof getDb>['transaction']>[0]>[0];
 
 function readTaskInput(formData: FormData) {
   const priority = String(formData.get('priority') ?? '');

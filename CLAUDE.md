@@ -342,8 +342,10 @@ Not "Warning: incomplete data." Not "Invalid range."
    `<app URL>/api/webhooks/stripe` in the Stripe Dashboard and set its signing
    secret as `STRIPE_WEBHOOK_SECRET`, redeploy, then subscribe once and watch the
    first renewal invoice's log line. Two decisions are open on the agent log:
-   the usage-fee basis (thread 13) and what, if anything, the app withholds
-   when a subscription is overdue or canceled (thread 14) — today, nothing.
+the usage-fee basis (thread 13). What a lapsed subscription withholds
+(thread 14) is settled: nothing locks until Stripe can take a card; companies
+created before 2026-10-26 keep working until they subscribe; a new company
+gets 14 days, then writes wait on a plan. A failed payment has 14 days.
 
 ---
 

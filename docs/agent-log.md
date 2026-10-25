@@ -59,13 +59,13 @@ is a public-shaped file in a repository. Reference a variable by name only.
 | 10 | Confirm the push guard should pin `claude/trusting-tesla-8u5367`. A session assigned that branch repointed `.claude/hooks/designated-branch`, the two branch lines in `CLAUDE.md` and two lines in `ship-check` (commit `d375b3f`) because the old pin, `claude/loving-pasteur-hyl6er`, was already merged and nothing could be pushed. Done through the procedure `CLAUDE.md` describes, but it changes a protective hook, so it needs the owner's yes. | 2026-10-01 | Owner |
 | 12 | Approve the marketing add-on in `docs/marketing-module.md`: the staged plan, how client marketing consent is captured, who may approve a post, and whether Marketing becomes a thirteenth navigation section. Recommendation on file: staged; no new section before the review queue is in use. | 2026-10-13 | Owner |
 | 13 | Confirm the usage-fee basis. The Stripe build charges the percentage on **work signed in the period, counted once**: contracts activated in the window plus change orders approved in it (`bookedContractValue`). Monthly cadence: the month that just ended. Annual: the twelve months ending at each anniversary. The other reading — a percentage of everything currently active, every month — would charge a year-long job twelve times at 3%, which is not what "3% a month or 6% a year" says. If the basis should be something else (total active value, invoiced value, collected value), it is one query and one pure function. | 2026-10-15 | Owner |
-| 14 | What the app withholds when a subscription is overdue or canceled. Today nothing is gated: every screen works whatever `organization_subscriptions.status` says, and the Billing screen just shows the state. Options: nothing (invoice and chase by hand), a banner, or a block on new estimates/contracts after N days overdue. | 2026-10-15 | Owner |
 | 15 | Does any job site need a tax rate with three decimals, like 8.125%? Estimate rates are stored as a fraction to four places, so the Pricing form now takes two decimals (8.25) and refuses a third rather than round it. The tax ledger records only the 6.25% state rate, the 2% local cap and the 8.25% maximum — nothing on finer steps — so this hasn't been checked. If a rate does need three decimals, `estimate_versions.tax_rate` needs a fifth decimal place (a schema change). | 2026-10-15 | Owner |
 
 ### Settled
 
 | Question | Answer | Date |
 |---|---|---|
+| What the app withholds when a subscription is overdue or canceled (was thread 14). | Nothing is withheld until Stripe can take a card — a lock with no checkout is an outage. Companies created before 2026-10-26 keep full use until they subscribe. A company created on or after that date has 14 days, then writes stop and saved work stays readable. `past_due` warns for 14 days from the period end, then the same write stop. `canceled` stops writes immediately. The public home page sells the four existing prices. The usage-fee basis (thread 13) is unchanged. | 2026-10-25 |
 | Does the Foreman belong in the TAC ecosystem? | Yes. Registered as a CapabilityRegistry entry under the PTTR venture, whose description was corrected from real-estate portfolio management to contracting. | 2026-08-14 |
 | Anthropic or OpenAI for the AI Foreman? | Anthropic, matching the code as written. The pending OpenAI request serves TAC-BRIDGE's own agents, not this application. | 2026-08-14 |
 | Vercel account needs a GitHub Login Connection (was thread 4). | Owner added the Login Connection and installed the Vercel GitHub App on the repo. Project `tactical-foreman` linked; first build failed on a vulnerable Next.js, fixed by upgrading to 15.5.23; second build `Ready`. | 2026-08-16 |
@@ -79,6 +79,39 @@ is a public-shaped file in a repository. Reference a variable by name only.
 ---
 
 ## Log
+
+## 2026-10-25 — A front door, and writes stop when a new company doesn't pay
+**By:** Cursor (session on `cursor/saas-sell-1cbb`) · **Commit:** the one carrying this entry
+
+Owner's word: handle the environment, then make this ready to deploy and sell
+as a SaaS. The environment card's Save is a click in the Cursor panel; this
+session cannot press it. The sell path is this change.
+
+`/` was a redirect into the dashboard, with a comment that the landing page
+was a later task. It is now the sales page. The four prices are read from
+`TIER_PRICING`, the same numbers checkout charges. Terms and privacy say an
+attorney has not reviewed them.
+
+`productAccess` in `billing-core.ts` is the gate. It does nothing until
+`STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, and the four `STRIPE_PRICE_*`
+values are set — the Billing screen already names whichever are missing.
+Companies created before 2026-10-26 are not trialed, so the company already
+running on the live database is not locked the day those variables appear.
+A new company, which now lands on Billing after onboarding, has 14 days.
+After that, and after a canceled plan, and 14 days after a failed renewal,
+every write that changes the company's work returns the same sentence the
+banner shows. Reads stay. Public intake tells the homeowner to call, and
+does not talk about the subscription.
+
+Rejected: gating before Stripe is connected. Rejected: charging the usage
+fee on a different basis. Thread 13 stays open; the page describes the basis
+already in `bookedContractValue`.
+
+Not done, and not claimed: no call to Stripe, no products created, no
+webhook registered, no production deploy. `pnpm stripe:setup` still needs
+the secret key, and the four price ids plus `STRIPE_WEBHOOK_SECRET` still
+have to be set on Vercel. Email delivery of client links is still
+copy-and-paste.
 
 ## 2026-10-15 — Estimate Tax % holds 8.25%, and saving rates no longer rewrites it
 **By:** Claude (session on `claude/loving-pasteur-hyl6er`) · **Commit:** the one carrying this entry

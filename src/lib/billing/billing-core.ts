@@ -177,3 +177,110 @@ export function formatMoney(value: number | null | undefined): string {
 export function formatPct(fraction: number): string {
   return `${Math.round((fraction * 100 + Number.EPSILON) * 100) / 100}%`;
 }
+
+// ── Who may keep working ─────────────────────────────────────────────────────
+//
+// Selling the product means a new company pays after a trial. Companies that
+// already existed when selling started keep working without a subscription:
+// locking the company that built this, on the day Stripe is switched on and
+// before anyone has subscribed, would take the jobs offline to make a point.
+//
+// Nothing here runs until Stripe can actually take a card. A lock with no
+// checkout is not a price — it is an outage.
+
+/** Companies created before this instant are not put on a trial. */
+export const SUBSCRIPTION_REQUIRED_FROM = new Date('2026-10-26T00:00:00.000Z');
+
+/** How long a new company may write jobs before a plan is required. */
+export const TRIAL_DAYS = 14;
+
+/** How long a failed renewal may sit before writes stop. */
+export const PAST_DUE_GRACE_DAYS = 14;
+
+export function addUtcDays(date: Date, days: number): Date {
+  const next = new Date(date.getTime());
+  next.setUTCDate(next.getUTCDate() + days);
+  return next;
+}
+
+function formatUtcDay(date: Date): string {
+  return new Intl.DateTimeFormat('en-US', {
+    timeZone: 'UTC',
+    month: 'long',
+    day: 'numeric',
+    year: 'numeric',
+  }).format(date);
+}
+
+export interface ProductAccessInput {
+  /** Stripe can take a card. Until it can, the product stays open. */
+  billingConnected: boolean;
+  status: SubscriptionStatus | null;
+  orgCreatedAt: Date;
+  /** End of the period Stripe already billed, when there is one. */
+  periodEnd: Date | null;
+}
+
+export type ProductAccess =
+  | { level: 'open'; notice: null }
+  | { level: 'notice'; notice: string }
+  | { level: 'blocked'; notice: string };
+
+/**
+ * Whether this company may still change its work.
+ *
+ * `open` — subscribed, grandfathered, or billing isn't connected.
+ * `notice` — still working, and the screen says when that ends.
+ * `blocked` — saved work stays readable; writes wait on a plan or a card.
+ *
+ * A canceled or overdue subscription is not grandfathered. The exemption is
+ * only for a company that has never been billed.
+ */
+export function productAccess(input: ProductAccessInput, now: Date = new Date()): ProductAccess {
+  if (!input.billingConnected) return { level: 'open', notice: null };
+
+  if (input.status === 'active' || input.status === 'trialing') {
+    return { level: 'open', notice: null };
+  }
+
+  if (input.status === 'canceled') {
+    return {
+      level: 'blocked',
+      notice:
+        'This subscription is canceled. Choose a plan to keep writing jobs, estimates, and invoices. What’s already saved stays put.',
+    };
+  }
+
+  if (input.status === 'past_due') {
+    const until = addUtcDays(input.periodEnd ?? now, PAST_DUE_GRACE_DAYS);
+    if (now.getTime() < until.getTime()) {
+      return {
+        level: 'notice',
+        notice: `The last payment didn’t go through. Update the card by ${formatUtcDay(until)} to keep working.`,
+      };
+    }
+    return {
+      level: 'blocked',
+      notice:
+        'The payment is still overdue. Update the card to keep working. Saved jobs stay on the account.',
+    };
+  }
+
+  if (input.orgCreatedAt.getTime() < SUBSCRIPTION_REQUIRED_FROM.getTime()) {
+    return { level: 'open', notice: null };
+  }
+
+  const trialEnds = addUtcDays(input.orgCreatedAt, TRIAL_DAYS);
+  if (now.getTime() < trialEnds.getTime()) {
+    return {
+      level: 'notice',
+      notice: `Trial runs through ${formatUtcDay(trialEnds)}. Subscribe before then to keep writing estimates, contracts, and invoices.`,
+    };
+  }
+
+  return {
+    level: 'blocked',
+    notice:
+      'The trial has ended. Subscribe to keep writing estimates, contracts, and invoices. What’s already saved stays put.',
+  };
+}

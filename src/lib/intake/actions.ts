@@ -6,6 +6,7 @@ import { eq } from 'drizzle-orm';
 import { getDb, schema } from '@/db';
 import { logger } from '@/lib/logger';
 import { getAuthContext } from '@/lib/auth/session';
+import { blockedProductWrite } from '@/lib/billing/access';
 import { assertCan } from '@/lib/auth/rbac';
 import { publicIntakeSchema, quickIntakeSchema } from './schema';
 import { screenForSpam, composeIntakeDescription } from './intake-core';
@@ -55,6 +56,12 @@ export async function submitPublicIntake(
       .from(schema.organizations)
       .where(eq(schema.organizations.slug, slug));
     if (!org) return { error: 'This form is no longer available.' };
+    const blocked = await blockedProductWrite(org.id);
+    if (blocked) {
+      return {
+        error: 'This company isn’t taking new requests on this form right now. Please call them.',
+      };
+    }
 
     await db.transaction(async (tx) => {
       const [lead] = await tx
@@ -115,6 +122,8 @@ export async function quickIntake(
   } catch {
     return { error: 'You do not have permission to capture leads.' };
   }
+  const blocked = await blockedProductWrite(ctx.activeOrg.organizationId);
+  if (blocked) return { error: blocked };
   const orgId = ctx.activeOrg.organizationId;
 
   const parsed = quickIntakeSchema.safeParse(Object.fromEntries(formData));

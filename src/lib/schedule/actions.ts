@@ -6,6 +6,7 @@ import { and, eq, sql } from 'drizzle-orm';
 import { getDb, schema } from '@/db';
 import { logger } from '@/lib/logger';
 import { getAuthContext, type AuthContext } from '@/lib/auth/session';
+import { blockedProductWrite } from '@/lib/billing/access';
 import { assertCan } from '@/lib/auth/rbac';
 import type { FormState } from '@/lib/auth/actions';
 import { mirrorLater } from '@/lib/calendar/after-write';
@@ -34,6 +35,8 @@ async function requireScheduleWrite(): Promise<
   } catch {
     return { ok: false, error: 'You do not have permission to change the schedule.' };
   }
+  const blocked = await blockedProductWrite(ctx.activeOrg.organizationId);
+  if (blocked) return { ok: false, error: blocked };
   return { ok: true, orgId: ctx.activeOrg.organizationId, userId: ctx.userId };
 }
 
@@ -52,10 +55,7 @@ function revalidateSchedule(projectId?: string | null) {
 }
 
 /** Adds a work item to a project's schedule. */
-export async function createScheduleItem(
-  _prev: FormState,
-  formData: FormData,
-): Promise<FormState> {
+export async function createScheduleItem(_prev: FormState, formData: FormData): Promise<FormState> {
   const auth = await requireScheduleWrite();
   if (!auth.ok) return { error: auth.error };
   const { orgId, userId } = auth;
@@ -127,10 +127,7 @@ export async function createScheduleItem(
 }
 
 /** Edits a work item: dates, status, progress, crew, dependency. */
-export async function updateScheduleItem(
-  _prev: FormState,
-  formData: FormData,
-): Promise<FormState> {
+export async function updateScheduleItem(_prev: FormState, formData: FormData): Promise<FormState> {
   const auth = await requireScheduleWrite();
   if (!auth.ok) return { error: auth.error };
   const { orgId } = auth;

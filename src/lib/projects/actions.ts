@@ -6,6 +6,7 @@ import { and, eq, sql } from 'drizzle-orm';
 import { getDb, schema } from '@/db';
 import { logger } from '@/lib/logger';
 import { getAuthContext, type AuthContext } from '@/lib/auth/session';
+import { blockedProductWrite } from '@/lib/billing/access';
 import { assertCan } from '@/lib/auth/rbac';
 import type { FormState } from '@/lib/auth/actions';
 import { formatProjectNumber } from '@/lib/leads/leads-core';
@@ -30,6 +31,8 @@ async function requireProjectsWrite(): Promise<
   } catch {
     return { ok: false, error: 'You do not have permission to manage projects.' };
   }
+  const blocked = await blockedProductWrite(ctx.activeOrg.organizationId);
+  if (blocked) return { ok: false, error: blocked };
   return { ok: true, ctx: { ...ctx, orgId: ctx.activeOrg.organizationId } };
 }
 

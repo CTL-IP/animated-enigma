@@ -12,6 +12,9 @@ describe('route access decisions', () => {
     expect(isPublicPath('/invite/abc123')).toBe(true);
     expect(isPublicPath('/auth/callback')).toBe(true);
     // Client share links are public; the internal money sections are not.
+    expect(isPublicPath('/')).toBe(true);
+    expect(isPublicPath('/terms')).toBe(true);
+    expect(isPublicPath('/privacy')).toBe(true);
     expect(isPublicPath('/proposal/tok')).toBe(true);
     expect(isPublicPath('/change-order/tok')).toBe(true);
     expect(isProtectedPath('/contracts')).toBe(true);

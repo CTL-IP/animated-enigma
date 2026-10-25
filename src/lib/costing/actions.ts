@@ -6,6 +6,7 @@ import { and, eq, sql } from 'drizzle-orm';
 import { getDb, schema } from '@/db';
 import { logger } from '@/lib/logger';
 import { getAuthContext, type AuthContext } from '@/lib/auth/session';
+import { blockedProductWrite } from '@/lib/billing/access';
 import { assertCan, can } from '@/lib/auth/rbac';
 import type { FormState } from '@/lib/auth/actions';
 import {
@@ -35,6 +36,8 @@ async function requireTimeWrite(): Promise<
   } catch {
     return { ok: false, error: 'You do not have permission to log time.' };
   }
+  const blocked = await blockedProductWrite(ctx.activeOrg.organizationId);
+  if (blocked) return { ok: false, error: blocked };
   return { ok: true, ctx, orgId: ctx.activeOrg.organizationId, userId: ctx.userId };
 }
 
@@ -52,6 +55,8 @@ async function requireCostWrite(): Promise<
   } catch {
     return { ok: false, error: 'You do not have permission to record job costs.' };
   }
+  const blocked = await blockedProductWrite(ctx.activeOrg.organizationId);
+  if (blocked) return { ok: false, error: blocked };
   return { ok: true, orgId: ctx.activeOrg.organizationId, userId: ctx.userId };
 }
 
@@ -73,16 +78,14 @@ export async function clockIn(formData: FormData): Promise<void> {
   try {
     // The database's exclusion constraint is the real guard against a second
     // open shift; this just turns it into a no-op rather than an error page.
-    await getDb()
-      .insert(schema.timeEntries)
-      .values({
-        organizationId: orgId,
-        userId,
-        projectId,
-        taskId,
-        clockIn: new Date(),
-        status: 'open',
-      });
+    await getDb().insert(schema.timeEntries).values({
+      organizationId: orgId,
+      userId,
+      projectId,
+      taskId,
+      clockIn: new Date(),
+      status: 'open',
+    });
   } catch (error) {
     logger.error('costing.clock_in_failed', { error: String(error), projectId });
     return;
@@ -128,10 +131,7 @@ export async function clockOut(formData: FormData): Promise<void> {
  * someone forgets — so it's supported, but flagged `is_manual` so approval can
  * treat it differently from a clocked one.
  */
-export async function logTimeManually(
-  _prev: FormState,
-  formData: FormData,
-): Promise<FormState> {
+export async function logTimeManually(_prev: FormState, formData: FormData): Promise<FormState> {
   const auth = await requireTimeWrite();
   if (!auth.ok) return { error: auth.error };
   const { ctx, orgId, userId } = auth;
@@ -193,9 +193,7 @@ export async function setTimeEntryStatus(formData: FormData): Promise<void> {
     const [updated] = await getDb()
       .update(schema.timeEntries)
       .set({ status, approvedBy: status === 'approved' ? userId : null })
-      .where(
-        and(eq(schema.timeEntries.organizationId, orgId), eq(schema.timeEntries.id, entryId)),
-      )
+      .where(and(eq(schema.timeEntries.organizationId, orgId), eq(schema.timeEntries.id, entryId)))
       .returning({ projectId: schema.timeEntries.projectId });
     projectId = updated?.projectId ?? null;
   } catch (error) {
@@ -321,10 +319,7 @@ export async function deleteExpense(formData: FormData): Promise<void> {
  * Sets what an hour of someone's time costs the business. Owner-level: this
  * number silently drives every margin in the system.
  */
-export async function setMemberCostRate(
-  _prev: FormState,
-  formData: FormData,
-): Promise<FormState> {
+export async function setMemberCostRate(_prev: FormState, formData: FormData): Promise<FormState> {
   const ctx = await getAuthContext();
   if (!ctx.userId) redirect('/login');
   if (!ctx.dbAvailable || !ctx.activeOrg) {

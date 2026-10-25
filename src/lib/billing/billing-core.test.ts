@@ -1,7 +1,12 @@
 import { describe, it, expect } from 'vitest';
 import {
   TIER_PRICING,
+  SUBSCRIPTION_REQUIRED_FROM,
+  TRIAL_DAYS,
+  PAST_DUE_GRACE_DAYS,
+  addUtcDays,
   computeCharges,
+  productAccess,
   usageRate,
   formatMoney,
   formatPct,
@@ -103,6 +108,93 @@ describe('formatPct', () => {
     expect(formatPct(0.06)).toBe('6%');
     expect(formatPct(0.0737)).toBe('7.37%');
     expect(formatPct(0.1515)).toBe('15.15%');
+  });
+});
+
+const beforeSell = new Date(SUBSCRIPTION_REQUIRED_FROM.getTime() - 1);
+const atSell = new Date(SUBSCRIPTION_REQUIRED_FROM.getTime());
+
+describe('productAccess', () => {
+  const connected = {
+    billingConnected: true,
+    periodEnd: null as Date | null,
+  };
+
+  it('stays open when Stripe cannot take a card, even if the subscription is canceled', () => {
+    expect(
+      productAccess(
+        { ...connected, billingConnected: false, status: 'canceled', orgCreatedAt: atSell },
+        atSell,
+      ),
+    ).toEqual({ level: 'open', notice: null });
+  });
+
+  it('stays open for an active or trialing subscription', () => {
+    for (const status of ['active', 'trialing'] as const) {
+      expect(productAccess({ ...connected, status, orgCreatedAt: atSell }, atSell).level).toBe(
+        'open',
+      );
+    }
+  });
+
+  it('leaves a company that existed before selling started alone until it subscribes', () => {
+    const yearsLater = new Date('2030-01-01T00:00:00.000Z');
+    expect(
+      productAccess(
+        { ...connected, status: null, orgCreatedAt: beforeSell, periodEnd: null },
+        yearsLater,
+      ),
+    ).toEqual({ level: 'open', notice: null });
+    expect(
+      productAccess(
+        { ...connected, status: 'pending', orgCreatedAt: beforeSell, periodEnd: null },
+        yearsLater,
+      ).level,
+    ).toBe('open');
+  });
+
+  it('gives a new company a trial and names the last day', () => {
+    const now = new Date(atSell.getTime() + 60_000);
+    const access = productAccess({ ...connected, status: null, orgCreatedAt: atSell }, now);
+    expect(access.level).toBe('notice');
+    expect(access.notice).toContain('November 9, 2026');
+  });
+
+  it('blocks a new company once the trial day has arrived', () => {
+    const trialEnds = addUtcDays(atSell, TRIAL_DAYS);
+    expect(
+      productAccess({ ...connected, status: 'pending', orgCreatedAt: atSell }, trialEnds).level,
+    ).toBe('blocked');
+    expect(
+      productAccess(
+        { ...connected, status: null, orgCreatedAt: atSell },
+        new Date(trialEnds.getTime() - 1),
+      ).level,
+    ).toBe('notice');
+  });
+
+  it('warns through the grace window after a failed renewal, then blocks', () => {
+    const periodEnd = new Date('2026-11-01T00:00:00.000Z');
+    const during = new Date(periodEnd.getTime() + 86_400_000);
+    const graceEnds = addUtcDays(periodEnd, PAST_DUE_GRACE_DAYS);
+    expect(
+      productAccess(
+        { ...connected, status: 'past_due', orgCreatedAt: beforeSell, periodEnd },
+        during,
+      ).level,
+    ).toBe('notice');
+    expect(
+      productAccess(
+        { ...connected, status: 'past_due', orgCreatedAt: beforeSell, periodEnd },
+        graceEnds,
+      ).level,
+    ).toBe('blocked');
+  });
+
+  it('blocks a canceled subscription even for a company that predates selling', () => {
+    expect(
+      productAccess({ ...connected, status: 'canceled', orgCreatedAt: beforeSell }, atSell).level,
+    ).toBe('blocked');
   });
 });
 

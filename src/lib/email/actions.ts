@@ -7,6 +7,7 @@ import { getDb, schema } from '@/db';
 import { publicEnv } from '@/lib/env';
 import { logger } from '@/lib/logger';
 import { getAuthContext, type AuthContext } from '@/lib/auth/session';
+import { blockedProductWrite } from '@/lib/billing/access';
 import { can, type Permission } from '@/lib/auth/rbac';
 import type { FormState } from '@/lib/auth/actions';
 import { toNum } from '@/lib/catalog/catalog-core';
@@ -19,7 +20,12 @@ import {
   type ChangeOrderItemInput,
 } from '@/lib/change-orders/change-orders-core';
 import { getInvoice } from '@/lib/invoices/queries';
-import { balanceOf, isEditable, lineAmount, type InvoiceStatus } from '@/lib/invoices/invoices-core';
+import {
+  balanceOf,
+  isEditable,
+  lineAmount,
+  type InvoiceStatus,
+} from '@/lib/invoices/invoices-core';
 import {
   changeOrderEmail,
   invoiceEmail,
@@ -60,6 +66,8 @@ async function requireSender(kind: Exclude<EmailKind, 'invitation'>): Promise<Re
   if (!can(ctx.activeOrg.roles, PERMISSION[kind], ctx.activeOrg.extraPermissions)) {
     return { error: 'You do not have permission to send this.' };
   }
+  const blocked = await blockedProductWrite(ctx.activeOrg.organizationId);
+  if (blocked) return { error: blocked };
   return {
     ok: true,
     ctx,
@@ -118,14 +126,18 @@ async function sendProposal(
 
   const events = await getProposalEvents(orgId, version.id);
   const token =
-    (events.find((e) => (e.metadata as { token?: string } | null)?.token)?.metadata as {
-      token?: string;
-    } | null)?.token ?? null;
+    (
+      events.find((e) => (e.metadata as { token?: string } | null)?.token)?.metadata as {
+        token?: string;
+      } | null
+    )?.token ?? null;
   if (!token) return { error: 'This proposal has no share link. Regenerate it, then send.' };
 
   const recipient = await recipientForProject(orgId, proposal.projectId);
   if (!recipient?.email) {
-    return { error: 'This client has no email address on file. Add one on the client record first.' };
+    return {
+      error: 'This client has no email address on file. Add one on the client record first.',
+    };
   }
 
   const snapshot = version.contentSnapshot as ProposalSnapshot | null;
@@ -152,12 +164,14 @@ async function sendProposal(
   });
 
   if (result.ok) {
-    await getDb().insert(schema.proposalEvents).values({
-      organizationId: orgId,
-      proposalVersionId: version.id,
-      eventType: 'emailed',
-      metadata: { to: message.to, provider: result.provider },
-    });
+    await getDb()
+      .insert(schema.proposalEvents)
+      .values({
+        organizationId: orgId,
+        proposalVersionId: version.id,
+        eventType: 'emailed',
+        metadata: { to: message.to, provider: result.provider },
+      });
   }
 
   revalidatePath(`/proposals/${proposal.id}`);
@@ -179,7 +193,9 @@ async function sendChangeOrder(
 
   const recipient = await recipientForProject(orgId, co.projectId);
   if (!recipient?.email) {
-    return { error: 'This client has no email address on file. Add one on the client record first.' };
+    return {
+      error: 'This client has no email address on file. Add one on the client record first.',
+    };
   }
 
   const items: ChangeOrderItemInput[] = row.items.map((i) => ({
@@ -234,13 +250,17 @@ async function sendInvoice(
   const status = invoice.status as InvoiceStatus;
 
   if (isEditable(status)) {
-    return { error: 'Issue the invoice first — emailing a draft would send amounts that can still change.' };
+    return {
+      error: 'Issue the invoice first — emailing a draft would send amounts that can still change.',
+    };
   }
   if (status === 'void') return { error: 'This invoice is void. Nothing to send.' };
 
   const recipient = await recipientForClient(orgId, invoice.clientId);
   if (!recipient?.email) {
-    return { error: 'This client has no email address on file. Add one on the client record first.' };
+    return {
+      error: 'This client has no email address on file. Add one on the client record first.',
+    };
   }
 
   const total = toNum(invoice.total);

@@ -82,7 +82,7 @@ export async function createOrganization(_prev: FormState, formData: FormData): 
     return { error: 'Could not create the organization. Try again.' };
   }
 
-  redirect('/dashboard');
+  redirect('/settings/billing');
 }
 
 export async function switchOrganization(formData: FormData): Promise<void> {

@@ -80,6 +80,21 @@ is a public-shaped file in a repository. Reference a variable by name only.
 
 ## Log
 
+## 2026-10-25 — The README matches the front door
+**By:** Cursor (session on `cursor/saas-sell-1cbb`) · **Commit:** the one carrying this entry
+
+`README.md` still said the app was a placeholder shell and that `/` redirected
+to the dashboard. Both were wrong after the sales page landed, and a person
+deploying from that page would follow instructions for a product that no
+longer exists. The getting-started note, the structure line, and a short
+"Selling it" section now match `page.tsx`, `.env.example`, and
+`pnpm stripe:setup`.
+
+Stripe was not called. The local key and webhook secret are still the
+placeholders, and the four price ids are still empty. Vercel could not be
+signed in from this session, so no production variable was read or set and
+nothing was deployed.
+
 ## 2026-10-25 — The sell branch is cleared to push
 **By:** Cursor (session on `cursor/saas-sell-1cbb`) · **Commit:** the one carrying this entry
 

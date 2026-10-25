@@ -80,6 +80,17 @@ is a public-shaped file in a repository. Reference a variable by name only.
 
 ## Log
 
+## 2026-10-25 — The sell branch has a pull request
+**By:** Cursor (session on `cursor/saas-sell-1cbb`) · **Commit:** the one carrying this entry
+
+Pull request #35 is open from `cursor/saas-sell-1cbb` into
+`claude/tactical-foreman-build-m7i3ng`:
+https://github.com/CTL-IP/animated-enigma/pull/35
+
+It is not merged. Production still deploys from `main`. Stripe was still not
+called, and Vercel sign-in from this session timed out, so no host variable
+was set.
+
 ## 2026-10-25 — The README matches the front door
 **By:** Cursor (session on `cursor/saas-sell-1cbb`) · **Commit:** the one carrying this entry
 

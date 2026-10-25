@@ -42,22 +42,7 @@ export function EstimateBuilder({
 }) {
   return (
     <div className="min-w-0 space-y-3">
-      {/*
-        On a phone the lines are cards, so the page stays still. A sideways
-        table makes the screen feel like it slides under a thumb. From md up
-        the table comes back, and only that box scrolls.
-      */}
-      <ul className="divide-y rounded-lg border md:hidden">
-        {lines.map((line) => (
-          <LineCard key={line.id} projectId={projectId} line={line} editable={editable} />
-        ))}
-        {lines.length === 0 ? (
-          <li className="px-3 py-6 text-center text-sm text-muted-foreground">
-            No lines yet. Add from your catalog or enter one below.
-          </li>
-        ) : null}
-      </ul>
-      <div className="hidden overflow-x-auto rounded-lg border md:block">
+      <div className="overflow-x-auto rounded-lg border">
         <table className="w-full min-w-[560px] text-sm">
           <thead className="bg-secondary/50 text-left text-xs uppercase tracking-wide text-muted-foreground">
             <tr>
@@ -97,62 +82,6 @@ export function EstimateBuilder({
   );
 }
 
-function LineCard({
-  projectId,
-  line,
-  editable,
-}: {
-  projectId: string;
-  line: EstimateLineRow;
-  editable: boolean;
-}) {
-  const [editing, setEditing] = useState(false);
-  const lineCost = computeLineCost(line);
-
-  if (editing && editable) {
-    return (
-      <li className="bg-accent/30 px-3 py-2">
-        <LineEditor projectId={projectId} line={line} onCancel={() => setEditing(false)} />
-      </li>
-    );
-  }
-
-  return (
-    <li className="space-y-2 p-3">
-      <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0">
-          <div className="font-medium">{line.description}</div>
-          {line.category ? (
-            <div className="text-xs text-muted-foreground">{line.category}</div>
-          ) : null}
-          <div className="mt-1">
-            <LineTypeBadge type={line.lineType as LineType} />
-          </div>
-        </div>
-        {editable ? (
-          <LineActions projectId={projectId} lineId={line.id} onEdit={() => setEditing(true)} />
-        ) : null}
-      </div>
-      <dl className="grid grid-cols-3 gap-2 text-sm">
-        <div className="min-w-0">
-          <dt className="text-[11px] text-muted-foreground">Qty</dt>
-          <dd className="tabular-nums">
-            {Number(line.quantity)} {UNIT_ABBR[line.unit]}
-          </dd>
-        </div>
-        <div className="min-w-0">
-          <dt className="text-[11px] text-muted-foreground">Unit cost</dt>
-          <dd className="tabular-nums text-muted-foreground">{formatCost(line.unitCost)}</dd>
-        </div>
-        <div className="min-w-0">
-          <dt className="text-[11px] text-muted-foreground">Line cost</dt>
-          <dd className="font-medium tabular-nums">{formatMoney(lineCost)}</dd>
-        </div>
-      </dl>
-    </li>
-  );
-}
-
 function LineRow({
   projectId,
   line,
@@ -168,7 +97,75 @@ function LineRow({
     return (
       <tr className="bg-accent/30">
         <td colSpan={6} className="px-3 py-2">
-          <LineEditor projectId={projectId} line={line} onCancel={() => setEditing(false)} />
+          <form
+            action={updateLine}
+            className="flex flex-wrap items-end gap-2"
+            onSubmit={() => setEditing(false)}
+          >
+            <input type="hidden" name="projectId" value={projectId} />
+            <input type="hidden" name="lineId" value={line.id} />
+            <FieldMini label="Description" className="min-w-[12rem] flex-1">
+              <Input name="description" defaultValue={line.description} required />
+            </FieldMini>
+            <FieldMini label="Type">
+              <Select name="lineType" defaultValue={line.lineType} className="w-auto">
+                {LINE_TYPES.map((t) => (
+                  <option key={t} value={t}>
+                    {LINE_TYPE_LABELS[t]}
+                  </option>
+                ))}
+              </Select>
+            </FieldMini>
+            <FieldMini label="Qty">
+              <Input
+                name="quantity"
+                type="number"
+                min="0"
+                step="0.01"
+                defaultValue={line.quantity}
+                className="w-20"
+              />
+            </FieldMini>
+            <FieldMini label="Unit">
+              <Select name="unit" defaultValue={line.unit} className="w-auto">
+                {UNITS.map((u) => (
+                  <option key={u} value={u}>
+                    {UNIT_ABBR[u]}
+                  </option>
+                ))}
+              </Select>
+            </FieldMini>
+            <FieldMini label="Unit cost">
+              <Input
+                name="unitCost"
+                type="number"
+                min="0"
+                step="0.01"
+                defaultValue={line.unitCost}
+                className="w-24"
+              />
+            </FieldMini>
+            <FieldMini label="Waste %">
+              <Input
+                name="wasteFactorPct"
+                type="number"
+                min="0"
+                max="100"
+                step="0.5"
+                defaultValue={line.wasteFactorPct ? String(Number(line.wasteFactorPct) * 100) : '0'}
+                className="w-20"
+              />
+            </FieldMini>
+            <TaxableField defaultChecked={line.taxable} />
+            <div className="flex items-center gap-1.5">
+              <Button type="submit" size="sm">
+                Save
+              </Button>
+              <Button type="button" size="sm" variant="ghost" onClick={() => setEditing(false)}>
+                Cancel
+              </Button>
+            </div>
+          </form>
         </td>
       </tr>
     );
@@ -195,133 +192,34 @@ function LineRow({
       <td className="px-3 py-2 text-right font-medium tabular-nums">{formatMoney(lineCost)}</td>
       {editable ? (
         <td className="px-3 py-2">
-          <LineActions projectId={projectId} lineId={line.id} onEdit={() => setEditing(true)} />
+          <div className="flex items-center justify-end gap-1">
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="h-7 w-7 p-0"
+              onClick={() => setEditing(true)}
+              aria-label="Edit line"
+            >
+              <Pencil className="h-4 w-4" />
+            </Button>
+            <form action={deleteLine}>
+              <input type="hidden" name="projectId" value={projectId} />
+              <input type="hidden" name="lineId" value={line.id} />
+              <Button
+                type="submit"
+                variant="ghost"
+                size="sm"
+                className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive"
+                aria-label="Delete line"
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </form>
+          </div>
         </td>
       ) : null}
     </tr>
-  );
-}
-
-function LineEditor({
-  projectId,
-  line,
-  onCancel,
-}: {
-  projectId: string;
-  line: EstimateLineRow;
-  onCancel: () => void;
-}) {
-  return (
-    <form
-      action={updateLine}
-      className="flex min-w-0 flex-wrap items-end gap-2"
-      onSubmit={onCancel}
-    >
-      <input type="hidden" name="projectId" value={projectId} />
-      <input type="hidden" name="lineId" value={line.id} />
-      <FieldMini
-        label="Description"
-        className="min-w-0 flex-1 basis-full sm:min-w-[12rem] sm:basis-auto"
-      >
-        <Input name="description" defaultValue={line.description} required />
-      </FieldMini>
-      <FieldMini label="Type">
-        <Select name="lineType" defaultValue={line.lineType} className="w-auto">
-          {LINE_TYPES.map((t) => (
-            <option key={t} value={t}>
-              {LINE_TYPE_LABELS[t]}
-            </option>
-          ))}
-        </Select>
-      </FieldMini>
-      <FieldMini label="Qty">
-        <Input
-          name="quantity"
-          type="number"
-          min="0"
-          step="0.01"
-          defaultValue={line.quantity}
-          className="w-20"
-        />
-      </FieldMini>
-      <FieldMini label="Unit">
-        <Select name="unit" defaultValue={line.unit} className="w-auto">
-          {UNITS.map((u) => (
-            <option key={u} value={u}>
-              {UNIT_ABBR[u]}
-            </option>
-          ))}
-        </Select>
-      </FieldMini>
-      <FieldMini label="Unit cost">
-        <Input
-          name="unitCost"
-          type="number"
-          min="0"
-          step="0.01"
-          defaultValue={line.unitCost}
-          className="w-24"
-        />
-      </FieldMini>
-      <FieldMini label="Waste %">
-        <Input
-          name="wasteFactorPct"
-          type="number"
-          min="0"
-          max="100"
-          step="0.5"
-          defaultValue={line.wasteFactorPct ? String(Number(line.wasteFactorPct) * 100) : '0'}
-          className="w-20"
-        />
-      </FieldMini>
-      <TaxableField defaultChecked={line.taxable} />
-      <div className="flex items-center gap-1.5">
-        <Button type="submit" size="sm">
-          Save
-        </Button>
-        <Button type="button" size="sm" variant="ghost" onClick={onCancel}>
-          Cancel
-        </Button>
-      </div>
-    </form>
-  );
-}
-
-function LineActions({
-  projectId,
-  lineId,
-  onEdit,
-}: {
-  projectId: string;
-  lineId: string;
-  onEdit: () => void;
-}) {
-  return (
-    <div className="flex shrink-0 items-center justify-end gap-1">
-      <Button
-        type="button"
-        variant="ghost"
-        size="sm"
-        className="h-7 w-7 p-0"
-        onClick={onEdit}
-        aria-label="Edit line"
-      >
-        <Pencil className="h-4 w-4" />
-      </Button>
-      <form action={deleteLine}>
-        <input type="hidden" name="projectId" value={projectId} />
-        <input type="hidden" name="lineId" value={lineId} />
-        <Button
-          type="submit"
-          variant="ghost"
-          size="sm"
-          className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive"
-          aria-label="Delete line"
-        >
-          <Trash2 className="h-4 w-4" />
-        </Button>
-      </form>
-    </div>
   );
 }
 

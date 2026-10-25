@@ -70,11 +70,30 @@ export const updateLineSchema = z.object({
   taxable: taxableFlag,
 });
 
+/**
+ * A Pricing rate typed as a percent. The columns keep a fraction to four places,
+ * so two decimals of a percent — 8.25 — is the finest a rate can be stored.
+ * Anything finer is refused rather than rounded: the column would quietly keep
+ * 8.125 as 8.13, and a tax rate that changes itself is worse than one that asks.
+ *
+ * Stored as hundredths over 10,000, not `n / 100`, so 8.15 goes in as 0.0815
+ * rather than 0.08150000000000002.
+ */
+const ratePercent = (label: string) =>
+  z
+    .union([z.literal(''), z.coerce.number().min(0).max(100)])
+    .optional()
+    .refine(
+      (v) => v === '' || v === undefined || Math.abs(v * 100 - Math.round(v * 100)) < 1e-6,
+      `${label} takes two decimal places at most — 8.25, not 8.125.`,
+    )
+    .transform((v) => (v === '' || v === undefined ? 0 : Math.round(Number(v) * 100) / 10000));
+
 export const ratesSchema = z.object({
   estimateVersionId: z.string().uuid(),
-  overheadPct: percent,
-  profitPct: percent,
-  taxRate: percent,
+  overheadPct: ratePercent('Overhead %'),
+  profitPct: ratePercent('Profit %'),
+  taxRate: ratePercent('Tax %'),
   name: z
     .string()
     .trim()

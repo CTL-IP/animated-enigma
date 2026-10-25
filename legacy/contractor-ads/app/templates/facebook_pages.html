@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}Choose a Page — ContractorAds{% endblock %}
+{% block content %}
+<div class="max-w-2xl mx-auto">
+  <h1 class="text-3xl font-bold text-gray-900">Choose a Page</h1>
+  <p class="mt-2 text-gray-600">Only the Page you pick can receive posts from this desk.</p>
+  <form method="post" action="/facebook/pages" class="mt-6 bg-white rounded-xl shadow-sm border border-gray-200 p-6 space-y-3">
+    {% for choice in choices %}
+    <label class="flex items-center gap-3 rounded-lg border border-gray-200 px-3 py-2">
+      <input type="radio" name="page_id" value="{{ choice.page_id }}" required>
+      <span class="font-medium text-gray-900">{{ choice.page_name }}</span>
+    </label>
+    {% endfor %}
+    <button type="submit" class="bg-orange-500 hover:bg-orange-600 text-white font-semibold px-4 py-2 rounded-lg text-sm">Use this Page</button>
+  </form>
+</div>
+{% endblock %}

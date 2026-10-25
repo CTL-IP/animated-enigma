@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}Facebook — ContractorAds{% endblock %}
+{% block content %}
+<div class="max-w-2xl mx-auto">
+  <h1 class="text-3xl font-bold text-gray-900">Facebook</h1>
+  <p class="mt-2 text-gray-600">Connect one Page. A post from an ad publishes that headline and body. It does not buy an ad.</p>
+
+  {% if notice == 'missing_app' %}
+  <div class="mt-6 rounded-lg border border-amber-200 bg-amber-50 text-amber-900 text-sm px-4 py-3">
+    Set <code>META_APP_ID</code> and <code>META_APP_SECRET</code> in <code>.env</code>, then restart the server.
+  </div>
+  {% elif notice == 'connected' %}
+  <div class="mt-6 rounded-lg border border-green-200 bg-green-50 text-green-800 text-sm px-4 py-3">
+    This machine will publish to {{ page.page_name if page else 'the Page you chose' }}.
+  </div>
+  {% elif notice == 'denied' or notice == 'graph' or notice == 'bad_state' %}
+  <div class="mt-6 rounded-lg border border-red-200 bg-red-50 text-red-800 text-sm px-4 py-3">
+    Facebook login did not finish.{% if detail %} {{ detail }}{% endif %}
+  </div>
+  {% elif notice == 'no_pages' %}
+  <div class="mt-6 rounded-lg border border-amber-200 bg-amber-50 text-amber-900 text-sm px-4 py-3">
+    That login has no Facebook Page this app can post to.
+  </div>
+  {% endif %}
+
+  <div class="mt-6 bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+    {% if page %}
+    <p class="text-sm text-gray-500">Connected Page</p>
+    <p class="text-xl font-semibold text-gray-900 mt-1">{{ page.page_name }}</p>
+    {% else %}
+    <p class="text-gray-700">No Page is connected.</p>
+    {% endif %}
+
+    {% if ready %}
+    <a href="/facebook/start" class="inline-block mt-4 bg-gray-900 hover:bg-black text-white font-semibold px-4 py-2 rounded-lg text-sm">
+      {% if page %}Connect a different Page{% else %}Connect a Page{% endif %}
+    </a>
+    <p class="mt-3 text-xs text-gray-500">Register this redirect URI on the Meta app: {{ redirect_uri }}</p>
+    {% else %}
+    <p class="mt-4 text-sm text-gray-600">The Meta app id and secret are not set, so the connect button stays off.</p>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

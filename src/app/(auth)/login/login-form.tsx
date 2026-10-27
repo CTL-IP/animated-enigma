@@ -6,6 +6,7 @@ import { signIn, type FormState } from '@/lib/auth/actions';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { SubmitButton, FormNotice } from '@/components/forms/form-bits';
+import { InstallHint } from '@/components/hud/install-hint';
 
 const initialState: FormState = {};
 
@@ -50,6 +51,8 @@ export function LoginForm({ next }: { next?: string }) {
           Create an account
         </Link>
       </p>
+
+      <InstallHint />
     </form>
   );
 }

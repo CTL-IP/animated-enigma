@@ -24,9 +24,12 @@ const initial = {} as { error?: string; message?: string };
 export function ClockControls({
   projectId,
   openShiftId,
+  compact = false,
 }: {
   projectId: string;
   openShiftId: string | null;
+  /** HUD: one tap, no manual-entry form. */
+  compact?: boolean;
 }) {
   const [manual, setManual] = useState(false);
 
@@ -51,7 +54,7 @@ export function ClockControls({
                 className="h-9 w-24"
               />
             </div>
-            <Button type="submit" size="sm" className="w-auto">
+            <Button type="submit" size={compact ? 'lg' : 'sm'} className="w-auto min-h-11">
               <Square className="h-4 w-4" />
               Clock out
             </Button>
@@ -59,13 +62,14 @@ export function ClockControls({
         ) : (
           <form action={clockIn}>
             <input type="hidden" name="projectId" value={projectId} />
-            <Button type="submit" size="sm" className="w-auto">
+            <Button type="submit" size={compact ? 'lg' : 'sm'} className="w-auto min-h-11">
               <Play className="h-4 w-4" />
               Clock in
             </Button>
           </form>
         )}
 
+        {compact ? null : (
         <Button
           type="button"
           variant="outline"
@@ -75,6 +79,7 @@ export function ClockControls({
         >
           {manual ? 'Cancel' : 'Add time by hand'}
         </Button>
+        )}
       </div>
 
       {openShiftId ? (

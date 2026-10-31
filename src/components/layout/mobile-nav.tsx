@@ -16,7 +16,7 @@ export function MobileNav() {
   const right = mobileNavItems.slice(2);
 
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-30 border-t bg-card/95 backdrop-blur md:hidden">
+    <nav aria-label="Primary" className="fixed inset-x-0 bottom-0 z-30 border-t bg-card/95 backdrop-blur md:hidden">
       <div className="mx-auto flex max-w-lg items-center justify-around px-2 pb-[env(safe-area-inset-bottom)] pt-1.5">
         {left.map((item) => (
           <MobileLink key={item.href} href={item.href} pathname={pathname} label={item.label}>

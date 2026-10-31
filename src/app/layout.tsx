@@ -12,12 +12,17 @@ export const metadata: Metadata = {
   // Installed from Safari's share sheet, the app opens full-screen under its
   // own name; the manifest covers Android and desktop browsers.
   appleWebApp: { capable: true, title: 'Foreman', statusBarStyle: 'default' },
+  icons: {
+    icon: '/icons/icon-192.png',
+    apple: '/apple-touch-icon.png',
+  },
 };
 
 export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
   maximumScale: 1,
+  viewportFit: 'cover',
   themeColor: '#0f0e0c',
 };
 

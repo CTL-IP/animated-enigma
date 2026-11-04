@@ -41,9 +41,9 @@ export function EstimateBuilder({
   editable: boolean;
 }) {
   return (
-    <div className="space-y-3">
+    <div className="min-w-0 space-y-3">
       <div className="overflow-x-auto rounded-lg border">
-        <table className="w-full text-sm">
+        <table className="w-full min-w-[560px] text-sm">
           <thead className="bg-secondary/50 text-left text-xs uppercase tracking-wide text-muted-foreground">
             <tr>
               <th className="px-3 py-2 font-semibold">Description</th>
@@ -73,7 +73,7 @@ export function EstimateBuilder({
       </div>
 
       {editable ? (
-        <div className="grid gap-3 lg:grid-cols-2">
+        <div className="grid min-w-0 gap-3 lg:grid-cols-2">
           <CatalogAdd projectId={projectId} versionId={versionId} catalog={catalog} />
           <ManualAdd projectId={projectId} versionId={versionId} />
         </div>
@@ -240,7 +240,7 @@ function CatalogAdd({
     );
   }
   return (
-    <form action={addCatalogLine} className="space-y-2 rounded-md border p-3">
+    <form action={addCatalogLine} className="min-w-0 space-y-2 rounded-md border p-3">
       <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
         Add from catalog
       </p>
@@ -285,7 +285,7 @@ function ManualAdd({ projectId, versionId }: { projectId: string; versionId: str
       onSubmit={() => {
         taxableTouched.current = false;
       }}
-      className="space-y-2 rounded-md border p-3"
+      className="min-w-0 space-y-2 rounded-md border p-3"
     >
       <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
         Add a line
@@ -293,12 +293,12 @@ function ManualAdd({ projectId, versionId }: { projectId: string; versionId: str
       <input type="hidden" name="projectId" value={projectId} />
       <input type="hidden" name="estimateVersionId" value={versionId} />
       <Input name="description" placeholder="Description" required />
-      <div className="flex flex-wrap items-end gap-2">
+      <div className="flex min-w-0 flex-wrap items-end gap-2">
         <Select
           name="lineType"
           defaultValue={startType}
           aria-label="Type"
-          className="w-auto"
+          className="w-auto min-w-0"
           onChange={(e) => {
             const type = e.target.value;
             if (taxableBox.current && !taxableTouched.current && isLineType(type)) {

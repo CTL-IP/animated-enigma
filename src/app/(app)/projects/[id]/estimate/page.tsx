@@ -50,7 +50,7 @@ export default async function EstimatePage({
   const versions = await listEstimateVersions(orgId, id);
 
   return (
-    <div className="mx-auto max-w-5xl space-y-5">
+    <div className="mx-auto min-w-0 max-w-5xl space-y-5">
       <div>
         <Link
           href={`/projects/${id}`}
@@ -183,8 +183,13 @@ async function EstimateBody({
         </CardContent>
       </Card>
 
-      <div className="grid gap-5 lg:grid-cols-3">
-        <div className="lg:col-span-2">
+      {/*
+        Grid items default to min-width: auto, so a six-column line table
+        stretches the page past a phone. min-w-0 lets the track shrink; the
+        table's overflow-x-auto is then the only sideways scroll.
+      */}
+      <div className="grid min-w-0 gap-5 lg:grid-cols-3">
+        <div className="min-w-0 lg:col-span-2">
           <EstimateBuilder
             projectId={projectId}
             versionId={selectedId}
@@ -194,7 +199,7 @@ async function EstimateBody({
           />
         </div>
 
-        <div className="space-y-4">
+        <div className="min-w-0 space-y-4">
           <Card>
             <CardHeader>
               <CardTitle className="text-base">Totals</CardTitle>

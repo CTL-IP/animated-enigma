@@ -349,7 +349,7 @@ Not "Warning: incomplete data." Not "Invalid range."
 
 ## Current state
 
-- **1010 unit tests** across 53 files
+- **1028 unit tests** across 54 files
 - **226 real-Postgres RLS assertions**
 - **Texas tax ledger:** 44 facts — 38 confirmed, 5 partly confirmed, 1 not
   settled — checked 2026-09-26 (two on 2026-09-27) through search excerpts of

@@ -7,6 +7,7 @@ import {
   formatMarginPct,
   isLineType,
   nextSortOrder,
+  rateFieldValue,
   LINE_TYPES,
   type EstimateLineInput,
 } from './estimate-core';
@@ -139,6 +140,22 @@ describe('formatting', () => {
   it('formats a margin fraction as a percent', () => {
     expect(formatMarginPct('0.2424')).toBe('24.2%');
     expect(formatMarginPct(0)).toBe('0%');
+  });
+});
+
+describe('rateFieldValue', () => {
+  it('shows a stored rate exactly — 8.25% stays 8.25, not 8.3', () => {
+    expect(rateFieldValue('0.0825')).toBe('8.25');
+    expect(rateFieldValue('0.0815')).toBe('8.15');
+    expect(rateFieldValue('0.0830')).toBe('8.3');
+    expect(rateFieldValue('0.0625')).toBe('6.25');
+    expect(rateFieldValue('0.1000')).toBe('10');
+    expect(rateFieldValue(0.125)).toBe('12.5');
+  });
+  it('shows nothing stored as 0', () => {
+    expect(rateFieldValue(null)).toBe('0');
+    expect(rateFieldValue(undefined)).toBe('0');
+    expect(rateFieldValue('0')).toBe('0');
   });
 });
 

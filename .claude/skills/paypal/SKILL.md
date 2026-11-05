@@ -168,33 +168,28 @@ merchant names from the transaction feed, and what the business buys stay out
 of code, docs, commits, PR text and the agent log. Say "the account holds
 stale drafts"; never say how many or for how much.
 
-## Putting PayPal in the app — not built, and the shape it would take
+## How PayPal is wired into the app (Task 34)
 
-`docs/tech-stack.md` chose Stripe over PayPal for client payments, and Stripe is
-wired only for the app's own subscription billing; no Stripe call has ever been
-made. PayPal is the account the business collects on. If Patrick decides the
-app should collect through PayPal, it is a numbered task behind the seam rule
-in CLAUDE.md, in the same shape as `src/lib/stripe/`:
+Built 2026-11-05; see `docs/superpowers/specs/2026-11-05-paypal-client-payments-design.md`
+for the decisions and `docs/superpowers/plans/2026-11-05-paypal-client-payments.md`
+for how it was built. The connector above is still the right tool for looking at
+the account; the app is the right tool for collecting on a Foreman invoice.
 
-- `paypal-core.ts` — pure: `providerStatus()` naming `PAYPAL_CLIENT_ID`,
-  `PAYPAL_CLIENT_SECRET` and `PAYPAL_WEBHOOK_ID` when missing; the status map
-  above; the webhook verification string
-  `transmission_id|transmission_time|webhook_id|sha256(raw body)`, checked with
-  RSA against the certificate PayPal names in its headers, plus the five-minute
-  freshness rule; which `instrument_type` maps to which
-  `payment_method`.
-- `client.ts` — the only file that calls `api.paypal.com`. Invoices API v2.
-- `webhook.ts` — applies a verified `INVOICING.INVOICE.PAID`: insert into
-  `payments` with `external_id` = the PayPal transaction id, so the unique
-  index on `(organization_id, external_id)` makes a redelivery a no-op. PayPal
-  delivers at least once and out of order, so the handler fetches the invoice
-  and acts on its current status, never on the event alone.
-- `src/app/api/webhooks/paypal/route.ts` — verifies the signature on the
-  **raw** body before parsing, then hands off. The events that exist:
-  `INVOICING.INVOICE.CREATED`, `.UPDATED`, `.SCHEDULED`, `.SENT`, `.PAID`,
-  `.REFUNDED`, `.CANCELLED`.
+| Where | What |
+|---|---|
+| Settings → PayPal | Per-organization client id and secret (encrypted app-side under `PAYPAL_CREDENTIAL_ENCRYPTION_KEY`), sandbox or live, proved against PayPal before being stored. The app registers its own webhook at `<app URL>/api/webhooks/paypal`. Owner only. |
+| An issued invoice → PayPal card | **Send through PayPal** creates the PayPal copy (same number, same lines, tax only on taxable lines, a credit as a discount, full payment only, no tip), checks PayPal's total against ours, sends it, and shows the pay link for texting. The printed invoice carries a "Pay online" line. |
+| `src/app/api/webhooks/paypal/` | `INVOICING.INVOICE.PAID` and `.REFUNDED` post to the ledger at gross through the shared write path, once per PayPal transaction id; `.CANCELLED` clears the pay link. The invoice is fetched from PayPal before anything is written. |
+| `src/lib/paypal/` | `paypal-core.ts` (pure), `client.ts` (the only file that calls PayPal), `connection.ts` (the only place the secret is decrypted), `webhook.ts` behind a dependency port, `webhook-live.ts`, `queries.ts`, `actions.ts`, `mirror.ts` (voiding a Foreman invoice cancels the PayPal copy, best effort). |
 
-Two decisions sit with Patrick before any of that: whether `paypal` becomes a
-`payment_method` value (a `db-change`), and whether invoices get a client token
-page like proposals and change orders have, so the PayPal pay link has
-somewhere to live. Neither is this skill's call.
+What the app does **not** do: pull PayPal's fee into `processor_fee` (left
+blank, not zero); post payments marked as paid by hand inside PayPal (no
+transaction id to dedupe on — record those here by hand); send reminders;
+start refunds. Disputes stay in the Resolution Center.
+
+**Verified and not.** The unit suite, the component render tests and the
+real-Postgres RLS harness cover every decision. No call to PayPal has been made
+from this code: the sandbox run (connect a sandbox app, send a test invoice, pay
+it as a sandbox buyer, watch the ledger row, refund it, watch the refund row)
+and the first live invoice are the owner's to run, and `CLAUDE.md` open item 4
+says whether they have been.

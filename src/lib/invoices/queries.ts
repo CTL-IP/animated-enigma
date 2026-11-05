@@ -116,6 +116,7 @@ export async function getInvoice(organizationId: string, invoiceId: string) {
       paymentDate: schema.payments.paymentDate,
       method: schema.payments.method,
       referenceNumber: schema.payments.referenceNumber,
+      externalId: schema.payments.externalId,
       isRefund: schema.payments.isRefund,
     })
     .from(schema.paymentAllocations)

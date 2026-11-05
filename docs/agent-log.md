@@ -60,6 +60,7 @@ is a public-shaped file in a repository. Reference a variable by name only.
 | 12 | Approve the marketing add-on in `docs/marketing-module.md`: the staged plan, how client marketing consent is captured, who may approve a post, and whether Marketing becomes a thirteenth navigation section. Recommendation on file: staged; no new section before the review queue is in use. | 2026-10-13 | Owner |
 | 13 | Confirm the usage-fee basis. The Stripe build charges the percentage on **work signed in the period, counted once**: contracts activated in the window plus change orders approved in it (`bookedContractValue`). Monthly cadence: the month that just ended. Annual: the twelve months ending at each anniversary. The other reading — a percentage of everything currently active, every month — would charge a year-long job twelve times at 3%, which is not what "3% a month or 6% a year" says. If the basis should be something else (total active value, invoiced value, collected value), it is one query and one pure function. | 2026-10-15 | Owner |
 | 14 | What the app withholds when a subscription is overdue or canceled. Today nothing is gated: every screen works whatever `organization_subscriptions.status` says, and the Billing screen just shows the state. Options: nothing (invoice and chase by hand), a banner, or a block on new estimates/contracts after N days overdue. | 2026-10-15 | Owner |
+| 16 | Should the record-payment form take the processor's fee? `payments.processor_fee` exists and stays null for PayPal payments (the invoice payment record PayPal returns does not carry it; the transaction report does). Options: leave it, add a field to the form, or pull it from PayPal's transaction report in a later task. | 2026-11-05 | Owner |
 | 15 | Does any job site need a tax rate with three decimals, like 8.125%? Estimate rates are stored as a fraction to four places, so the Pricing form now takes two decimals (8.25) and refuses a third rather than round it. The tax ledger records only the 6.25% state rate, the 2% local cap and the 8.25% maximum — nothing on finer steps — so this hasn't been checked. If a rate does need three decimals, `estimate_versions.tax_rate` needs a fifth decimal place (a schema change). | 2026-10-15 | Owner |
 
 ### Settled
@@ -79,6 +80,174 @@ is a public-shaped file in a repository. Reference a variable by name only.
 ---
 
 ## Log
+
+## 2026-11-05 — Task 34 review fix pass
+**By:** Claude (session on `claude/new-session-w4xlnw`) · **Commit:** the one carrying this entry
+
+A fresh reviewer read the whole branch against the spec, the plan and the
+rulings. Nothing critical; five findings worth fixing, all fixed with a test
+that failed first:
+
+- **A send that succeeded but whose pay-link read-back failed said "Nothing
+  was sent" and offered Retry send**, which would have emailed the client
+  twice. `paypal_sent_at` is now stamped the moment PayPal accepts the send;
+  the read-back is its own step and a failure there says "The invoice was
+  sent, but … Reload in a minute."
+- **Skipped webhook transactions lost their reason.** The handler now warns,
+  with each reason, about anything skipped other than a redelivery, so a
+  payment with an unusable amount is no longer indistinguishable in the log
+  from a duplicate. The spec's on-screen "PayPal reported a payment the app
+  could not record" state is **not built**: it needs somewhere to store the
+  fact, and that is a decision for a later task (see below).
+- **"Paid through PayPal on …" could show on an invoice sent through PayPal
+  and then paid by check.** The invoice page now reads the date from the first
+  payment that carries a processor id, which only the webhook writes.
+- **The `paypal` skill still described the world before Task 34** in four
+  places (no seam, payments by hand, no column for the PayPal id, wallet
+  money as `other`). Corrected; the by-hand sections now say when they apply.
+- **The refund write had never run against Postgres.** Two assertions added: a
+  refund row with a negative allocation nets the invoice to zero, and a
+  processor transaction id cannot be recorded twice in an organization.
+
+Gate after the pass: typecheck exit 0; lint clean; `pnpm test` → 1143 tests
+in 62 files (7 new); `bash scripts/test-rls.sh` → 242 PASS (2 new).
+
+**Deferred, for Patrick to weigh (the reviewer's minors, left as they are):**
+a reader without `financials:write` sees "Sent through PayPal on <date> to ."
+because the client email is only loaded for writers; the access token is
+cached per request, not per connection, and the `PayPal-Request-Id` comment
+overstates what it protects; `ensureWebhook` reuses any webhook at the URL
+without checking its event types; `invoiceByPayPalId` takes the first match
+when two organizations share one PayPal account; a webhook id PayPal has
+dropped fails every event quietly while Settings still says "registered";
+thread 16 sits above thread 15 in the table.
+
+## 2026-11-05 — Task 34: clients pay through PayPal
+**By:** Claude (session on `claude/new-session-w4xlnw`) · **Commit:** the one carrying this entry, and the nine before it
+
+Patrick chose PayPal as the way clients pay, measured by how little a client
+has to do. The design is `docs/superpowers/specs/2026-11-05-paypal-client-payments-design.md`
+(approved) and the build followed `docs/superpowers/plans/2026-11-05-paypal-client-payments.md`,
+one commit per task.
+
+**What was built.** An issued invoice gets a PayPal card with a **Send through
+PayPal** button. The app creates the PayPal copy from the Foreman invoice (same
+number, same lines, tax only on taxable lines at the invoice rate, a credit as a
+discount, full payment only, no tip prompt), checks PayPal's total against ours
+and deletes the draft on any difference, sends it so PayPal emails the client a
+Pay button, and shows the pay link for texting; the printed invoice carries a
+"Pay online" line. PayPal's `INVOICING.INVOICE.PAID` and `.REFUNDED` events,
+verified by posting them back to PayPal, post to the ledger through one shared
+write path (`src/lib/invoices/ledger.ts`, which `recordPayment` now also uses),
+at gross, once per PayPal transaction id; `.CANCELLED` clears the pay link and
+leaves the Foreman's record alone. Credentials are per organization, entered on
+Settings → PayPal, proved against PayPal before being stored, encrypted under
+`PAYPAL_CREDENTIAL_ENCRYPTION_KEY`, and the app registers its own webhook.
+Voiding a sent invoice cancels the PayPal copy, best effort, after the response.
+New domain `src/lib/paypal/`; new table `paypal_connections`; three PayPal
+columns on `invoices`; `paypal` on `payment_method`; migrations 0051 and 0052.
+
+**Decisions made while building, and what was rejected.**
+- A taxable line carries no tax object when the invoice rate is 0: a 0% tax
+  line on the client's copy reads as a mistake, and the total is unchanged.
+- `nextInvoiceStatus` never promotes a void or draft invoice: money landing on
+  a voided PayPal invoice is recorded and allocated, and the invoice stays void.
+  Only a refund takes an invoice back to `sent`.
+- A PayPal refund is recorded with method `paypal`: the refund record names no
+  instrument and the money goes back to whatever paid.
+- The webhook handler takes its dependencies through a port, with the real ones
+  in `webhook-live.ts`, so its fourteen tests run on fakes and never load the
+  database module. `InvoiceRef` lives beside the port.
+- Only PayPal-processed transactions post automatically. A payment marked as
+  paid by hand inside PayPal carries no transaction id to dedupe on, so it stays
+  hand-entered.
+- The invoice card got render tests the plan had not budgeted: a seven-state
+  component is production code.
+
+**Verified, with the numbers from the gate on 2026-11-05.** `pnpm typecheck`
+exit 0; `pnpm lint` clean; `pnpm test` → 1136 tests passed in 62 files (108
+new: 61 core and client, 14 webhook, 15 card render, 6 ledger status and
+method, plus the fixtures that moved); `pnpm build` exit 0;
+`bash scripts/test-rls.sh` → 240 PASS lines (14 new, covering the owner-only
+write policy, the four CHECKs, revoke-never-delete, the PayPal fields staying
+writable on an issued invoice while its total stays frozen, uniqueness of the
+PayPal id, and cross-tenant isolation); `bash scripts/test-setup-sql.sh` → 52
+tables, all RLS-protected. Migrations 0051 and 0052 were **applied to the live
+project** `zhlkfuvscnblkkyfticz` and verified: `paypal_connections` has RLS
+enabled and forced, 3 policies, 1 trigger, 4 checks, 2 indexes; `invoices` is
+unchanged apart from its new partial unique index; the enum carries `paypal`.
+The security advisor shows the three known WARNs and one on Supabase Auth's
+leaked-password protection being off, an Auth setting no migration can cause.
+
+**Not run, and said plainly.** No call to PayPal has been made from this code.
+The sandbox run (connect a sandbox REST app on Settings, send a test invoice to
+a sandbox buyer, pay it, watch the ledger row, refund it, watch the refund row)
+and the first live invoice need Patrick's PayPal apps and a public URL, and are
+the two steps left on `CLAUDE.md` open item 4. Until they happen, the end-to-end
+path is proven only by tests against PayPal's published schema.
+
+**Found, not fixed.**
+- PayPal's fee is not pulled into `payments.processor_fee`; it stays null. The
+  record-payment form also still has no fee field (thread 16).
+- The duplicate-invoice-number issue code (`DUPLICATE_INVOICE_NUMBER`) is taken
+  from PayPal's error catalogue; the sandbox run confirms the spelling, and the
+  test fixture moves if PayPal spells it differently.
+- One commit (42fd8f8) was recorded as complete while its typecheck failed on a
+  test file; the check's exit status had been masked by a pipe. Fixed in the
+  next commit, and every later check captured its exit status.
+- `pnpm format:check` reports 124 files out of Prettier's shape, all of them
+  pre-existing; formatting is not in the gate and was left alone.
+
+## 2026-11-05 — PayPal connector learned and written down as a skill
+**By:** Claude (session on `claude/new-session-w4xlnw`) · **Commit:** the one carrying this entry
+
+Patrick dropped PayPal's developer-doc index and its Revenue page and said
+these are tools he wants used. The business collects on PayPal and the PayPal
+connector is wired into this claude.ai account, so the work was to learn that
+connector against the real account and capture it where the next session
+finds it: `.claude/skills/paypal/SKILL.md`. No application code changed.
+
+**What was verified, read-only, on 2026-11-05.** `list_invoices`,
+`list_transactions` (one 31-day window), `list_disputes` and
+`list_payment_links` all returned live data from the business account:
+invoices in every lifecycle status, a month of balance-affecting records
+including a card payment against an invoice with its fee, no payment links, no
+disputes. Nothing was created, sent, or marked. No invoice, link or email has
+been produced from a Claude session through this connector as far as this
+repository knows.
+
+**Decisions in the skill, and what was rejected.**
+- The Foreman invoice stays the record and the tax document; PayPal is the
+  collection page. The alternative — let PayPal be the invoice and copy it back
+  later — was rejected because the connector's invoice form takes one tax
+  percentage for the whole invoice, and the Foreman taxes per line because labor
+  on a residential repair can be exempt while materials are not. So the PayPal
+  invoice carries the Foreman total with tax left blank and itemized on the
+  Foreman invoice, and the Foreman invoice number rides in the product name and
+  note so the transaction can be matched later.
+- A PayPal payment is recorded in the Foreman at the **gross** amount, with the
+  PayPal transaction id as the reference number and the fee in the notes. The
+  fee is a cost, not a short payment.
+- Payment links are documented as unsuitable for job money: no customer tie, no
+  invoice number, so nothing to reconcile against.
+- The future `src/lib/paypal/` seam is sketched in the Stripe shape (pure core,
+  one client file, a webhook applier, a route that verifies the raw body) but
+  deliberately not built. `docs/tech-stack.md` chose Stripe for client payments,
+  and reversing that is Patrick's call, as are the two decisions underneath it:
+  a `paypal` payment-method value, and a client token page for invoices.
+
+**Found, not fixed.**
+- The PayPal account holds a run of stale draft invoices that look like a
+  bulk-create session repeated; they should be reviewed and cancelled in the
+  dashboard. The connector cannot cancel or delete. No counts or amounts here on
+  purpose: this file is public.
+- `payments.processor_fee` exists in the schema, but the record-payment form and
+  `recordPayment` never read it, so a processor's fee cannot be recorded today
+  except in notes.
+- `CLAUDE.md` and the `ship-check` skill still name `claude/trusting-tesla-8u5367`
+  as the branch and carry one past session's URL in the commit-trailer example.
+  This session pushed its own `claude/*` branch, which the guard allows, and its
+  commit trailer carries this session's real URL rather than the example's.
 
 ## 2026-10-15 — Estimate Tax % holds 8.25%, and saving rates no longer rewrites it
 **By:** Claude (session on `claude/loving-pasteur-hyl6er`) · **Commit:** the one carrying this entry

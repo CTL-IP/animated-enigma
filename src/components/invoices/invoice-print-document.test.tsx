@@ -23,6 +23,7 @@ const base: InvoicePrintProps = {
   amountPaid: 0,
   balance: 5350,
   paymentInstructions: 'Check payable to PTTR, or Zelle to the number on file.',
+  payUrl: null,
   notes: null,
 };
 

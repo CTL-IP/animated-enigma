@@ -106,9 +106,18 @@ invoice carries), `client.ts` is the only file that imports the Stripe SDK,
 in `billing-core.ts`, and a subscription's status is moved only by a webhook —
 never by the app on its own say-so.
 
+`paypal/` is the same shape for client payments (Task 34): `paypal-core.ts`
+decides (what the PayPal copy of an invoice contains, whether it may be sent,
+what a fetched PayPal invoice means for the ledger), `client.ts` is the only
+file that calls PayPal, `connection.ts` is the only place the client secret is
+decrypted, `webhook.ts` applies a verified event behind a dependency port, and
+the route is `src/app/api/webhooks/paypal/`. Credentials are per organization
+and encrypted app-side. A client payment reaches the ledger only through a
+verified webhook or a person's hand — never on the app's own say-so.
+
 ## Skills
 
-Four skills in `.claude/skills/` cover the recurring procedures. Use them. The bid-writing skills
+Five skills in `.claude/skills/` cover the recurring procedures. Use them. The bid-writing skills
 (`rfp-response`, `gov-contract-review`, `hud-pha-procurement`) live in their own repository,
 [`CTL-IP/bid-skills`](https://github.com/CTL-IP/bid-skills), not here: they are not about this
 application. Its `install.sh` links them into Claude Code, Codex and Cursor at user level.
@@ -119,6 +128,7 @@ application. Its `install.sh` links them into Claude Code, Codex and Cursor at u
 | `db-change` | Any edit to `schema.ts`, any migration, constraint, trigger, policy |
 | `ship-check` | Before every commit, and before saying anything is done |
 | `texas-tax` | Any Texas tax question — a job's treatment, a Comptroller publication, a due date, a penalty, franchise tax, vehicle rental tax — and any work in `src/lib/texas-tax` or `src/mcp/texas-tax` |
+| `paypal` | Anything touching the business's PayPal account through the connector — invoicing a client, sending or chasing a PayPal invoice, finding whether a client paid, recording that payment in the Foreman, disputes — and any talk of a `src/lib/paypal/` seam |
 
 ## Hooks
 
@@ -210,7 +220,7 @@ docs/                               PRD, architecture, full 50-table schema
 
 Domains built: `ai-foreman` `auth` `calendar` `catalog` `change-orders` `clients` `contracts`
 `costing` `daily-logs` `dashboard` `email` `estimates` `financials` `google` `intake` `invoices`
-`leads` `media` `projects` `proposals` `schedule` `scopes` `signatures`
+`leads` `media` `paypal` `projects` `proposals` `schedule` `scopes` `signatures`
 `site-visits` `storage` `stripe` `tasks` `texas-tax`
 
 ---
@@ -327,7 +337,15 @@ Not "Warning: incomplete data." Not "Invalid range."
    Ohio-specific right-to-cancel wording is the priority item. The starter
    template carries visible `[BRACKETED]` blanks and the app warns while any
    remain.
-4. **No client payment portal or card processing.** Payments are recorded by hand.
+4. **Client payments collect through PayPal (Task 34).** An issued invoice has a
+   "Send through PayPal" button; PayPal emails the client a Pay button and the
+   payment posts to the ledger through a verified webhook. To go live: set
+   `PAYPAL_CREDENTIAL_ENCRYPTION_KEY` on Vercel (`openssl rand -base64 32`),
+   create a sandbox REST app on developer.paypal.com and connect it on Settings
+   → PayPal, send a test invoice to a sandbox buyer and pay it, then connect the
+   live app and watch one real invoice. **Sandbox and live runs: not yet run.**
+   No call to PayPal has been made from this code. Card and other payments taken
+   outside PayPal are still recorded by hand.
 5. **Storage uploads are unverified end to end.** The `project-files` bucket
    exists and is private, but no file has actually been pushed through.
 6. **Texas tax tooling.** Approve the `texas-tax` MCP server the first time Claude
@@ -349,16 +367,18 @@ Not "Warning: incomplete data." Not "Invalid range."
 
 ## Current state
 
-- **1028 unit tests** across 54 files
-- **226 real-Postgres RLS assertions**
+- **1143 unit tests** across 62 files
+- **242 real-Postgres RLS assertions**
 - **Texas tax ledger:** 44 facts — 38 confirmed, 5 partly confirmed, 1 not
   settled — checked 2026-09-26 (two on 2026-09-27) through search excerpts of
   Comptroller pages and the Tax Code (the Comptroller's site itself is blocked
   in the build environment). Refresh with the `texas-tax-refresh` workflow.
-- **50 tables**, all `ENABLE` + `FORCE` RLS
-- Migrations through `0048` applied to the live project and verified
+- **52 tables**, all `ENABLE` + `FORCE` RLS
+- Migrations through `0052` applied to the live project and verified (2026-11-05)
 - Security advisor: three pre-existing WARNs on `has_role` / `is_member_of` /
-  `org_has_members` from Task 6. Known, unrelated. Anything else is new and yours.
+  `org_has_members` from Task 6, and one on Supabase Auth's leaked-password
+  protection being off (an Auth setting, not a schema matter; seen 2026-11-05).
+  Known. Anything else is new and yours.
 
 **No placeholder screens remain.** Every one of the twelve nav sections is built.
 

@@ -2,6 +2,8 @@ import { describe, it, expect } from 'vitest';
 import {
   AGING_BUCKETS,
   INVOICE_STATUSES,
+  PAYMENT_METHODS,
+  PAYMENT_METHOD_LABELS,
   agingBucket,
   allocatedTotal,
   balanceOf,
@@ -17,6 +19,7 @@ import {
   isPaymentMethod,
   lineAmount,
   netPayments,
+  nextInvoiceStatus,
   overpayment,
   summarizeReceivables,
   unappliedAmount,
@@ -353,5 +356,30 @@ describe('summarizeReceivables', () => {
       outstanding: 0,
       overdue: 0,
     });
+  });
+});
+
+describe('nextInvoiceStatus', () => {
+  it('never promotes a void invoice', () => {
+    expect(nextInvoiceStatus('void', 100, 100)).toBe('void');
+  });
+  it('leaves a draft alone', () => {
+    expect(nextInvoiceStatus('draft', 100, 0)).toBe('draft');
+  });
+  it('is paid at or above the total', () => {
+    expect(nextInvoiceStatus('sent', '100.00', '100.00')).toBe('paid');
+  });
+  it('is partially paid with money against it', () => {
+    expect(nextInvoiceStatus('sent', 100, 40)).toBe('partially_paid');
+  });
+  it('returns to sent when a refund takes it to nothing', () => {
+    expect(nextInvoiceStatus('paid', 100, 0)).toBe('sent');
+  });
+});
+
+describe('payment methods', () => {
+  it('lists paypal as a payment method with a label', () => {
+    expect(PAYMENT_METHODS).toContain('paypal');
+    expect(PAYMENT_METHOD_LABELS.paypal).toBe('PayPal');
   });
 });

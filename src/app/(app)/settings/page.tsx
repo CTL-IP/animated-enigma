@@ -12,12 +12,17 @@ import { googleEnv } from '@/lib/google/tokens';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { buttonVariants } from '@/components/ui/button';
 import { GoogleConnectionCard } from '@/components/settings/google-connection';
+import { PayPalConnectionCard } from '@/components/paypal/paypal-connection-card';
+import { providerStatus as paypalProviderStatus } from '@/lib/paypal/paypal-core';
+import { connectionSummaryFor } from '@/lib/paypal/queries';
+import { paypalEnv } from '@/lib/paypal/connection';
 import { SettingsForm } from './settings-form';
 
 export const metadata = { title: 'Settings' };
 
 interface SearchParams {
   google?: string;
+  paypal?: string;
 }
 
 export default async function SettingsPage({
@@ -43,7 +48,7 @@ export default async function SettingsPage({
   const mayManage = can(activeOrg.roles, 'org:manage', activeOrg.extraPermissions);
   const sp = await searchParams;
 
-  const [[org], connection] = await Promise.all([
+  const [[org], connection, paypal] = await Promise.all([
     getDb()
       .select({
         name: schema.organizations.name,
@@ -55,6 +60,7 @@ export default async function SettingsPage({
       .from(schema.organizations)
       .where(eq(schema.organizations.id, activeOrg.organizationId)),
     ownConnection(activeOrg.organizationId, ctx.userId!),
+    connectionSummaryFor(activeOrg.organizationId),
   ]);
 
   const blanks = unresolvedBlanks(resolveTerms(org?.contractTerms));
@@ -115,6 +121,13 @@ export default async function SettingsPage({
         mayConnect={mayManage}
         notice={sp.google}
         redirectUri={googleEnv().redirectUri}
+      />
+
+      <PayPalConnectionCard
+        status={paypalProviderStatus(paypalEnv())}
+        summary={paypal}
+        mayManage={mayManage}
+        notice={sp.paypal}
       />
 
       <Card>

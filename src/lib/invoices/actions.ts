@@ -9,8 +9,9 @@ import { getAuthContext, type AuthContext } from '@/lib/auth/session';
 import { assertCan } from '@/lib/auth/rbac';
 import type { FormState } from '@/lib/auth/actions';
 import { toNum } from '@/lib/catalog/catalog-core';
+import { applyPaymentWithAllocations } from './ledger';
+import { cancelPayPalInvoiceLater } from '@/lib/paypal/mirror';
 import {
-  balanceOf,
   formatInvoiceNumber,
   invoiceTotals,
   isEditable,
@@ -446,6 +447,8 @@ export async function setInvoiceStatus(formData: FormData): Promise<void> {
         status: schema.invoices.status,
         total: schema.invoices.total,
         amountPaid: schema.invoices.amountPaid,
+        paypalInvoiceId: schema.invoices.paypalInvoiceId,
+        paypalSentAt: schema.invoices.paypalSentAt,
       })
       .from(schema.invoices)
       .where(and(eq(schema.invoices.organizationId, orgId), eq(schema.invoices.id, invoiceId)));
@@ -465,6 +468,12 @@ export async function setInvoiceStatus(formData: FormData): Promise<void> {
         ...(next === 'sent' ? { issuedAt: now, lockedAt: now } : {}),
       })
       .where(eq(schema.invoices.id, invoiceId));
+
+    // The PayPal copy of a voided invoice should stop being payable too —
+    // best effort, after the response, never blocking the void itself.
+    if (next === 'void' && invoice.paypalInvoiceId) {
+      cancelPayPalInvoiceLater(orgId, invoice.paypalInvoiceId, invoice.paypalSentAt !== null);
+    }
   } catch (error) {
     logger.error('invoices: status change failed', {
       message: error instanceof Error ? error.message : String(error),
@@ -527,59 +536,20 @@ export async function recordPayment(_prev: FormState, formData: FormData): Promi
       .where(and(eq(schema.projects.organizationId, orgId), eq(schema.projects.id, projectId)));
 
     await db.transaction(async (tx) => {
-      const now = new Date();
-      const [payment] = await tx
-        .insert(schema.payments)
-        .values({
-          organizationId: orgId,
-          projectId,
-          clientId: project?.clientId ?? null,
-          amount: String(toNum(amount)),
-          paymentDate: paymentDate.length > 0 ? paymentDate : new Date().toISOString().slice(0, 10),
-          method,
-          referenceNumber: referenceNumber || null,
-          notes: notes || null,
-          lockedAt: now,
-          createdBy: userId,
-        })
-        .returning({ id: schema.payments.id });
-      if (!payment) throw new Error('payment insert failed');
-
-      for (const allocation of allocations) {
-        await tx.insert(schema.paymentAllocations).values({
-          organizationId: orgId,
-          paymentId: payment.id,
-          invoiceId: allocation.invoiceId,
-          amount: String(toNum(allocation.amount)),
-          lockedAt: now,
-        });
-
-        // Recompute the invoice's paid total from its allocations rather than
-        // incrementing, so the cache can't drift.
-        const [{ paid }] = (await tx
-          .select({ paid: sql<string>`coalesce(sum(amount), 0)::text` })
-          .from(schema.paymentAllocations)
-          .where(eq(schema.paymentAllocations.invoiceId, allocation.invoiceId))) as [
-          { paid: string },
-        ];
-
-        const [invoice] = await tx
-          .select({ total: schema.invoices.total, status: schema.invoices.status })
-          .from(schema.invoices)
-          .where(eq(schema.invoices.id, allocation.invoiceId));
-        const total = toNum(invoice?.total);
-        const amountPaid = toNum(paid);
-        const balance = balanceOf(total, amountPaid);
-
-        await tx
-          .update(schema.invoices)
-          .set({
-            amountPaid: String(amountPaid),
-            balance: String(balance),
-            status: balance <= 0 ? 'paid' : 'partially_paid',
-          })
-          .where(eq(schema.invoices.id, allocation.invoiceId));
-      }
+      await applyPaymentWithAllocations(tx, {
+        organizationId: orgId,
+        projectId,
+        clientId: project?.clientId ?? null,
+        amount: toNum(amount),
+        method,
+        paymentDate: paymentDate.length > 0 ? paymentDate : new Date().toISOString().slice(0, 10),
+        referenceNumber: referenceNumber || null,
+        externalId: null,
+        notes: notes || null,
+        isRefund: false,
+        createdBy: userId,
+        allocations: allocations.map((a) => ({ invoiceId: a.invoiceId, amount: toNum(a.amount) })),
+      });
     });
   } catch (error) {
     logger.error('invoices: record payment failed', {

@@ -8,6 +8,7 @@ import {
   formatQuantity,
   isPayPalEnvironment,
   isPayPalEvent,
+  ledgerOpsFor,
   mapPayPalMethod,
   mapPayPalStatus,
   PAYPAL_API_BASE,
@@ -20,6 +21,7 @@ import {
   type ClientForPayPal,
   type ForemanInvoiceForPayPal,
   type OrgForPayPal,
+  type PayPalFetchedInvoice,
   type PayPalInvoiceBody,
   type PayPalInvoiceItem,
 } from './paypal-core';
@@ -374,5 +376,156 @@ describe('explainPayPalError', () => {
     expect(explainPayPalError(503, null, 'INV-1')).toBe(
       'PayPal returned 503. Nothing was sent; try again in a minute.',
     );
+  });
+});
+
+// ── What a fetched PayPal invoice means for the ledger ───────────────────────
+
+describe('ledgerOpsFor', () => {
+  const paid: PayPalFetchedInvoice = {
+    id: 'INV2-A',
+    status: 'PAID',
+    payments: {
+      transactions: [
+        {
+          type: 'PAYPAL',
+          payment_id: 'TX1',
+          payment_date: '2026-11-06',
+          method: 'CREDIT_CARD',
+          amount: { currency_code: 'USD', value: '1250.00' },
+        },
+      ],
+    },
+  };
+  it('turns a PayPal payment into one payment op at gross', () => {
+    expect(ledgerOpsFor(paid, new Set())).toEqual([
+      {
+        kind: 'payment',
+        externalId: 'TX1',
+        amount: 1250,
+        method: 'card',
+        paymentDate: '2026-11-06',
+        notes: 'PayPal invoice INV2-A',
+      },
+    ]);
+  });
+  it('skips a payment it has already recorded', () => {
+    expect(ledgerOpsFor(paid, new Set(['TX1']))).toEqual([
+      { kind: 'skip', externalId: 'TX1', reason: 'already recorded' },
+    ]);
+  });
+  it('leaves an external payment to hand entry', () => {
+    const ext: PayPalFetchedInvoice = {
+      ...paid,
+      payments: {
+        transactions: [
+          { type: 'EXTERNAL', method: 'CHECK', amount: { currency_code: 'USD', value: '10.00' } },
+        ],
+      },
+    };
+    expect(ledgerOpsFor(ext, new Set())).toEqual([
+      { kind: 'skip', externalId: null, reason: 'external payment; record by hand' },
+    ]);
+  });
+  it('turns a PayPal refund into a refund op', () => {
+    const refunded: PayPalFetchedInvoice = {
+      id: 'INV2-A',
+      status: 'REFUNDED',
+      refunds: {
+        transactions: [
+          {
+            type: 'PAYPAL',
+            refund_id: 'RF1',
+            refund_date: '2026-11-07',
+            amount: { currency_code: 'USD', value: '1250.00' },
+          },
+        ],
+      },
+    };
+    expect(ledgerOpsFor(refunded, new Set())).toEqual([
+      {
+        kind: 'refund',
+        externalId: 'RF1',
+        amount: 1250,
+        paymentDate: '2026-11-07',
+        notes: 'PayPal refund on invoice INV2-A',
+      },
+    ]);
+  });
+  it('skips a refund it has already recorded', () => {
+    const refunded: PayPalFetchedInvoice = {
+      id: 'INV2-A',
+      status: 'REFUNDED',
+      refunds: {
+        transactions: [
+          { type: 'PAYPAL', refund_id: 'RF1', amount: { currency_code: 'USD', value: '5.00' } },
+        ],
+      },
+    };
+    expect(ledgerOpsFor(refunded, new Set(['RF1']))).toEqual([
+      { kind: 'skip', externalId: 'RF1', reason: 'already recorded' },
+    ]);
+  });
+  it('falls back to today when PayPal gives no date', () => {
+    const undated: PayPalFetchedInvoice = {
+      ...paid,
+      payments: {
+        transactions: [
+          {
+            type: 'PAYPAL',
+            payment_id: 'TX2',
+            method: 'PAYPAL',
+            amount: { currency_code: 'USD', value: '5.00' },
+          },
+        ],
+      },
+    };
+    expect(ledgerOpsFor(undated, new Set(), new Date('2026-11-08T12:00:00Z'))[0]).toMatchObject({
+      paymentDate: '2026-11-08',
+      method: 'paypal',
+    });
+  });
+  it('skips a payment with no usable amount', () => {
+    const bad: PayPalFetchedInvoice = {
+      ...paid,
+      payments: {
+        transactions: [
+          { type: 'PAYPAL', payment_id: 'TX3', amount: { currency_code: 'USD', value: 'x' } },
+        ],
+      },
+    };
+    expect(ledgerOpsFor(bad, new Set())).toEqual([
+      { kind: 'skip', externalId: 'TX3', reason: 'no usable amount' },
+    ]);
+  });
+  it('skips a PayPal payment with no transaction id', () => {
+    const noId: PayPalFetchedInvoice = {
+      ...paid,
+      payments: {
+        transactions: [{ type: 'PAYPAL', amount: { currency_code: 'USD', value: '5.00' } }],
+      },
+    };
+    expect(ledgerOpsFor(noId, new Set())).toEqual([
+      { kind: 'skip', externalId: null, reason: 'no transaction id' },
+    ]);
+  });
+  it('is empty for an invoice with no transactions', () => {
+    expect(ledgerOpsFor({ id: 'INV2-B', status: 'SENT' }, new Set())).toEqual([]);
+  });
+  it('lists payments before refunds', () => {
+    const both: PayPalFetchedInvoice = {
+      ...paid,
+      refunds: {
+        transactions: [
+          {
+            type: 'PAYPAL',
+            refund_id: 'RF1',
+            refund_date: '2026-11-07',
+            amount: { currency_code: 'USD', value: '100.00' },
+          },
+        ],
+      },
+    };
+    expect(ledgerOpsFor(both, new Set()).map((op) => op.kind)).toEqual(['payment', 'refund']);
   });
 });

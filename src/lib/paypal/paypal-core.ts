@@ -512,3 +512,131 @@ export function explainPayPalError(status: number, body: unknown, invoiceNumber:
   const name = readErrorName(body);
   return `PayPal returned ${status}${name ? ` (${name})` : ''}. Nothing was sent; try again in a minute.`;
 }
+
+// ── What a fetched PayPal invoice means for the ledger ───────────────────────
+
+export interface PayPalPaymentDetail {
+  type?: 'PAYPAL' | 'EXTERNAL';
+  payment_id?: string;
+  payment_date?: string;
+  payment_date_time?: string;
+  method?: string;
+  amount?: PayPalMoney;
+  note?: string;
+}
+
+export interface PayPalRefundDetail {
+  type?: 'PAYPAL' | 'EXTERNAL';
+  refund_id?: string;
+  refund_date?: string;
+  amount?: PayPalMoney;
+  method?: string;
+}
+
+/** The subset of PayPal's invoice object the app reads back. */
+export interface PayPalFetchedInvoice {
+  id: string;
+  status: string;
+  detail?: {
+    invoice_number?: string;
+    metadata?: { recipient_view_url?: string; invoicer_view_url?: string };
+  };
+  amount?: PayPalMoney;
+  due_amount?: PayPalMoney;
+  payments?: { paid_amount?: PayPalMoney; transactions?: PayPalPaymentDetail[] };
+  refunds?: { refund_amount?: PayPalMoney; transactions?: PayPalRefundDetail[] };
+}
+
+export type LedgerOp =
+  | {
+      kind: 'payment';
+      externalId: string;
+      amount: number;
+      method: PaymentMethod;
+      paymentDate: string;
+      notes: string;
+    }
+  | { kind: 'refund'; externalId: string; amount: number; paymentDate: string; notes: string }
+  | { kind: 'skip'; externalId: string | null; reason: string };
+
+function usableAmount(money: PayPalMoney | undefined): number | null {
+  const n = Number(money?.value);
+  return Number.isFinite(n) && n > 0 ? n : null;
+}
+
+/**
+ * The ledger rows a fetched PayPal invoice implies, minus the ones already
+ * recorded. Only PayPal-processed transactions post: an entry Patrick marked
+ * as paid inside PayPal may carry no transaction id, so there is nothing to
+ * stop it posting twice, and it stays hand-entered. Amounts are gross — the
+ * client paid the invoice; PayPal's fee is the business's cost and is not in
+ * this record. Payments come before refunds so a refund never lands on an
+ * invoice whose payment the same event is still writing.
+ */
+export function ledgerOpsFor(
+  invoice: PayPalFetchedInvoice,
+  knownExternalIds: ReadonlySet<string>,
+  now: Date = new Date(),
+): LedgerOp[] {
+  const today = calendarDateInZone(now, 'UTC');
+  const ops: LedgerOp[] = [];
+
+  for (const t of invoice.payments?.transactions ?? []) {
+    if (t.type !== 'PAYPAL') {
+      ops.push({ kind: 'skip', externalId: null, reason: 'external payment; record by hand' });
+      continue;
+    }
+    const id = t.payment_id?.trim();
+    if (!id) {
+      ops.push({ kind: 'skip', externalId: null, reason: 'no transaction id' });
+      continue;
+    }
+    if (knownExternalIds.has(id)) {
+      ops.push({ kind: 'skip', externalId: id, reason: 'already recorded' });
+      continue;
+    }
+    const amount = usableAmount(t.amount);
+    if (amount === null) {
+      ops.push({ kind: 'skip', externalId: id, reason: 'no usable amount' });
+      continue;
+    }
+    ops.push({
+      kind: 'payment',
+      externalId: id,
+      amount,
+      method: mapPayPalMethod(t.method),
+      paymentDate: t.payment_date?.trim() || today,
+      notes: `PayPal invoice ${invoice.id}`,
+    });
+  }
+
+  for (const r of invoice.refunds?.transactions ?? []) {
+    if (r.type !== 'PAYPAL') {
+      ops.push({ kind: 'skip', externalId: null, reason: 'external refund; record by hand' });
+      continue;
+    }
+    const id = r.refund_id?.trim();
+    if (!id) {
+      ops.push({ kind: 'skip', externalId: null, reason: 'no transaction id' });
+      continue;
+    }
+    if (knownExternalIds.has(id)) {
+      ops.push({ kind: 'skip', externalId: id, reason: 'already recorded' });
+      continue;
+    }
+    const amount = usableAmount(r.amount);
+    if (amount === null) {
+      ops.push({ kind: 'skip', externalId: id, reason: 'no usable amount' });
+      continue;
+    }
+    ops.push({
+      kind: 'refund',
+      externalId: id,
+      amount,
+      paymentDate: r.refund_date?.trim() || today,
+      notes: `PayPal refund on invoice ${invoice.id}`,
+    });
+  }
+
+  return ops;
+}

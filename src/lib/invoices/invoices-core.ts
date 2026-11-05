@@ -73,7 +73,7 @@ export function isInvoiceType(value: string): value is InvoiceType {
   return (INVOICE_TYPES as readonly string[]).includes(value);
 }
 
-export const PAYMENT_METHODS = ['card', 'ach', 'check', 'cash', 'other'] as const;
+export const PAYMENT_METHODS = ['card', 'ach', 'check', 'cash', 'other', 'paypal'] as const;
 export type PaymentMethod = (typeof PAYMENT_METHODS)[number];
 
 export const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
@@ -82,6 +82,7 @@ export const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
   check: 'Check',
   cash: 'Cash',
   other: 'Other',
+  paypal: 'PayPal',
 };
 
 export function isPaymentMethod(value: string): value is PaymentMethod {
@@ -231,6 +232,30 @@ export function displayInvoiceStatus(
   }
   if (isPastDue(args.dueDate, args.now)) return 'overdue';
   return stored;
+}
+
+/**
+ * The stored status an invoice should carry after its allocations change.
+ *
+ * `void` and `draft` are never promoted: a void invoice that money lands on
+ * (a client paying a PayPal invoice the app already cancelled, say) keeps the
+ * payment and keeps being void — the money is real, the bill is not. Below
+ * that, the money decides: nothing owed is `paid`, something paid is
+ * `partially_paid`, and nothing paid falls back to `sent`, which is where a
+ * refund that takes an invoice to zero has to land. `recordPayment` never
+ * reaches the `sent` case; only a refund does.
+ */
+export function nextInvoiceStatus(
+  current: InvoiceStatus,
+  total: string | number | null | undefined,
+  amountPaid: string | number | null | undefined,
+): InvoiceStatus {
+  if (current === 'void' || current === 'draft') return current;
+  const owed = toNum(total);
+  const paid = toNum(amountPaid);
+  if (owed > 0 && paid >= owed) return 'paid';
+  if (paid > 0) return 'partially_paid';
+  return 'sent';
 }
 
 /**

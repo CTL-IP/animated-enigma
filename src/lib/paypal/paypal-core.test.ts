@@ -20,6 +20,8 @@ import {
   type ClientForPayPal,
   type ForemanInvoiceForPayPal,
   type OrgForPayPal,
+  type PayPalInvoiceBody,
+  type PayPalInvoiceItem,
 } from './paypal-core';
 
 describe('providerStatus', () => {
@@ -131,10 +133,9 @@ describe('connectionSummary', () => {
 
 // ── Building the PayPal invoice request ──────────────────────────────────────
 
-const lines = [
-  { description: 'Demo and haul-off', quantity: 1, unitPrice: 450, taxable: false },
-  { description: 'Tile, 120 sq ft', quantity: '1.5000', unitPrice: '300.00', taxable: true },
-];
+const demo = { description: 'Demo and haul-off', quantity: 1, unitPrice: 450, taxable: false };
+const tile = { description: 'Tile, 120 sq ft', quantity: '1.5000', unitPrice: '300.00', taxable: true };
+const lines = [demo, tile];
 const invoice: ForemanInvoiceForPayPal = {
   id: '11111111-2222-4333-8444-555555555555',
   invoiceNumber: 'INV-2026-0031',
@@ -157,6 +158,12 @@ const client: ClientForPayPal = {
   email: '  Mary@Example.com ',
 };
 const now = new Date('2026-11-05T12:00:00Z');
+
+function item(body: PayPalInvoiceBody, index: number): PayPalInvoiceItem {
+  const found = body.items[index];
+  if (!found) throw new Error(`no item ${index}`);
+  return found;
+}
 
 function built(
   inv: ForemanInvoiceForPayPal = invoice,
@@ -190,15 +197,15 @@ describe('buildInvoiceRequest', () => {
   });
   it('taxes only taxable lines, at the invoice rate', () => {
     const body = built();
-    expect(body.items[0].tax).toBeUndefined();
-    expect(body.items[1].tax).toEqual({ name: 'Sales tax', percent: '8.25' });
+    expect(item(body, 0).tax).toBeUndefined();
+    expect(item(body, 1).tax).toEqual({ name: 'Sales tax', percent: '8.25' });
   });
   it('formats quantities and money as PayPal wants them', () => {
     const body = built();
-    expect(body.items[1].quantity).toBe('1.5');
-    expect(body.items[1].unit_amount).toEqual({ currency_code: 'USD', value: '300.00' });
-    expect(body.items[0].quantity).toBe('1');
-    expect(body.items[0].unit_of_measure).toBe('QUANTITY');
+    expect(item(body, 1).quantity).toBe('1.5');
+    expect(item(body, 1).unit_amount).toEqual({ currency_code: 'USD', value: '300.00' });
+    expect(item(body, 0).quantity).toBe('1');
+    expect(item(body, 0).unit_of_measure).toBe('QUANTITY');
   });
   it('carries a credit as an invoice-level discount', () => {
     expect(built().amount?.breakdown.discount.invoice_discount.amount).toEqual({
@@ -229,7 +236,7 @@ describe('buildInvoiceRequest', () => {
     });
   });
   it('refuses a zero quantity, naming the line', () => {
-    const bad = { ...invoice, lines: [lines[0], { ...lines[1], quantity: 0 }] };
+    const bad = { ...invoice, lines: [demo, { ...tile, quantity: 0 }] };
     expect(buildInvoiceRequest(bad, org, client, now)).toEqual({
       ok: false,
       error: 'Line 2 has a quantity of zero. Fix it on the invoice first.',
@@ -237,10 +244,10 @@ describe('buildInvoiceRequest', () => {
   });
   it('splits a long description at 200 characters', () => {
     const long = 'x'.repeat(250);
-    const body = built({ ...invoice, lines: [{ ...lines[0], description: long }] });
-    expect(body.items[0].name).toHaveLength(200);
-    expect(body.items[0].description).toBe('x'.repeat(50));
-    expect(built().items[0].description).toBeUndefined();
+    const body = built({ ...invoice, lines: [{ ...demo, description: long }] });
+    expect(item(body, 0).name).toHaveLength(200);
+    expect(item(body, 0).description).toBe('x'.repeat(50));
+    expect(item(built(), 0).description).toBeUndefined();
   });
   it('fixes the configuration', () => {
     expect(built().configuration).toEqual({

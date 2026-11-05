@@ -10,6 +10,7 @@ import { assertCan } from '@/lib/auth/rbac';
 import type { FormState } from '@/lib/auth/actions';
 import { toNum } from '@/lib/catalog/catalog-core';
 import { applyPaymentWithAllocations } from './ledger';
+import { cancelPayPalInvoiceLater } from '@/lib/paypal/mirror';
 import {
   formatInvoiceNumber,
   invoiceTotals,
@@ -446,6 +447,8 @@ export async function setInvoiceStatus(formData: FormData): Promise<void> {
         status: schema.invoices.status,
         total: schema.invoices.total,
         amountPaid: schema.invoices.amountPaid,
+        paypalInvoiceId: schema.invoices.paypalInvoiceId,
+        paypalSentAt: schema.invoices.paypalSentAt,
       })
       .from(schema.invoices)
       .where(and(eq(schema.invoices.organizationId, orgId), eq(schema.invoices.id, invoiceId)));
@@ -465,6 +468,12 @@ export async function setInvoiceStatus(formData: FormData): Promise<void> {
         ...(next === 'sent' ? { issuedAt: now, lockedAt: now } : {}),
       })
       .where(eq(schema.invoices.id, invoiceId));
+
+    // The PayPal copy of a voided invoice should stop being payable too —
+    // best effort, after the response, never blocking the void itself.
+    if (next === 'void' && invoice.paypalInvoiceId) {
+      cancelPayPalInvoiceLater(orgId, invoice.paypalInvoiceId, invoice.paypalSentAt !== null);
+    }
   } catch (error) {
     logger.error('invoices: status change failed', {
       message: error instanceof Error ? error.message : String(error),

@@ -23,6 +23,8 @@ export interface InvoicePrintProps {
   amountPaid: number;
   balance: number;
   paymentInstructions: string | null;
+  /** The PayPal pay link, when the invoice was sent through PayPal. */
+  payUrl: string | null;
   notes: string | null;
 }
 
@@ -46,6 +48,7 @@ export function InvoicePrintDocument({
   amountPaid,
   balance,
   paymentInstructions,
+  payUrl,
   notes,
 }: InvoicePrintProps) {
   return (
@@ -126,6 +129,13 @@ export function InvoicePrintDocument({
         <section className="ptin-block">
           <div className="ptin-field-label">How to pay</div>
           <p className="ptin-p">{paymentInstructions}</p>
+        </section>
+      ) : null}
+
+      {payUrl ? (
+        <section className="ptin-block">
+          <div className="ptin-field-label">Pay online</div>
+          <p className="ptin-p">{payUrl}</p>
         </section>
       ) : null}
 

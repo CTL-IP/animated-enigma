@@ -86,6 +86,7 @@ export default async function InvoicePrintPage({ params }: { params: Promise<{ i
         amountPaid={amountPaid}
         balance={balanceOf(total, amountPaid)}
         paymentInstructions={invoice.paymentInstructions}
+        payUrl={invoice.paypalPayUrl}
         notes={invoice.notes}
       />
     </>

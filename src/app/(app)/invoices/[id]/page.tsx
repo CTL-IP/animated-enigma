@@ -31,6 +31,10 @@ import { EmailToClient } from '@/components/email/email-to-client';
 import { TaxCheckCard } from '@/components/texas-tax/tax-check-card';
 import { InvoiceForm } from './invoice-form';
 import { PaymentForm } from './payment-form';
+import { InvoicePayPalCard, type InvoicePayPalState } from '@/components/paypal/invoice-paypal-card';
+import { providerStatus as paypalProviderStatus } from '@/lib/paypal/paypal-core';
+import { connectionSummaryFor } from '@/lib/paypal/queries';
+import { paypalEnv } from '@/lib/paypal/connection';
 
 export const metadata = { title: 'Invoice' };
 
@@ -65,12 +69,29 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
   // Only an issued invoice is worth emailing: its amounts are locked. A draft's
   // can still change, so the Status card's "Issue invoice" stays the gate.
   const maySend = mayWrite && !editable && stored !== 'void';
-  const [recipient, lastSent, taxContext] = await Promise.all([
+  const [recipient, lastSent, taxContext, paypalConnection] = await Promise.all([
     maySend ? recipientForClient(orgId, invoice.clientId) : Promise.resolve(null),
     maySend ? lastEmailFor(orgId, 'invoice', invoice.id) : Promise.resolve(null),
     // A voided invoice bills nothing, so there is nothing to check.
     stored !== 'void' ? jobTaxContext(orgId, invoice.projectId) : Promise.resolve(null),
+    connectionSummaryFor(orgId),
   ]);
+
+  // Where this invoice stands with PayPal. A reader sees the card only once
+  // there is something to read (a sent or paid PayPal invoice); someone who
+  // may write sees what to do next. An invoice paid some other way shows no
+  // PayPal card at all — "paid through PayPal" would be a lie.
+  const paypalStatus = paypalProviderStatus(paypalEnv());
+  const paypalState: InvoicePayPalState | null = (() => {
+    if (!mayWrite && !invoice.paypalInvoiceId) return null;
+    if (!paypalStatus.configured || !paypalConnection?.live) return 'unconfigured';
+    if (editable || stored === 'void') return 'not_issued';
+    if (display === 'paid') return invoice.paypalSentAt ? 'paid' : null;
+    if (invoice.paypalInvoiceId && invoice.paypalSentAt) return 'sent';
+    if (invoice.paypalInvoiceId) return 'created';
+    if (!recipient?.email) return 'no_email';
+    return 'ready';
+  })();
 
   const lines: InvoiceLineInput[] = row.lines.map((l) => ({
     description: l.description,
@@ -173,6 +194,21 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
           {invoice.notes ? <p className="text-sm">{invoice.notes}</p> : null}
         </CardContent>
       </Card>
+
+      {paypalState ? (
+        <InvoicePayPalCard
+          invoiceId={invoice.id}
+          state={paypalState}
+          clientEmail={recipient?.email ?? null}
+          clientName={row.clientName ?? 'the client'}
+          clientId={invoice.clientId}
+          payUrl={invoice.paypalPayUrl}
+          sentOn={invoice.paypalSentAt ? formatCalendarDate(invoice.paypalSentAt) : null}
+          paidOn={row.applied[0] ? formatCalendarDate(row.applied[0].paymentDate) : null}
+          settingsMissing={paypalStatus.missing}
+          mayWrite={mayWrite}
+        />
+      ) : null}
 
       {maySend ? (
         <Card>

@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
+import { invoiceTotals } from '@/lib/invoices/invoices-core';
 import {
+  buildInvoiceRequest,
+  calendarDateInZone,
   connectionSummary,
+  explainPayPalError,
+  formatQuantity,
   isPayPalEnvironment,
   isPayPalEvent,
   mapPayPalMethod,
@@ -8,7 +13,13 @@ import {
   PAYPAL_API_BASE,
   PAYPAL_EVENTS,
   providerStatus,
+  money,
   readWebhookHeaders,
+  sendPreconditions,
+  totalsAgree,
+  type ClientForPayPal,
+  type ForemanInvoiceForPayPal,
+  type OrgForPayPal,
 } from './paypal-core';
 
 describe('providerStatus', () => {
@@ -115,5 +126,246 @@ describe('connectionSummary', () => {
     expect(connectionSummary(row).environment).toBe('sandbox');
     expect(connectionSummary(row).webhookRegistered).toBe(true);
     expect(connectionSummary(row).lastVerifiedOn).toBe('11/6/2026');
+  });
+});
+
+// ── Building the PayPal invoice request ──────────────────────────────────────
+
+const lines = [
+  { description: 'Demo and haul-off', quantity: 1, unitPrice: 450, taxable: false },
+  { description: 'Tile, 120 sq ft', quantity: '1.5000', unitPrice: '300.00', taxable: true },
+];
+const invoice: ForemanInvoiceForPayPal = {
+  id: '11111111-2222-4333-8444-555555555555',
+  invoiceNumber: 'INV-2026-0031',
+  issuedAt: new Date('2026-11-05T03:30:00Z'),
+  dueDate: '2026-11-20',
+  taxRatePercent: 8.25,
+  credits: 50,
+  total: invoiceTotals(lines, 8.25, 50).total,
+  paymentInstructions: null,
+  lines,
+};
+const org: OrgForPayPal = {
+  name: "PT's Tactical Renovations",
+  logoUrl: 'https://example.test/logo.png',
+  timezone: 'America/Chicago',
+};
+const client: ClientForPayPal = {
+  displayName: 'Mary Ann Lee',
+  companyName: null,
+  email: '  Mary@Example.com ',
+};
+const now = new Date('2026-11-05T12:00:00Z');
+
+function built(
+  inv: ForemanInvoiceForPayPal = invoice,
+  o: OrgForPayPal = org,
+  c: ClientForPayPal = client,
+) {
+  const r = buildInvoiceRequest(inv, o, c, now);
+  if (!r.ok) throw new Error(r.error);
+  return r.body;
+}
+
+describe('buildInvoiceRequest', () => {
+  it('maps number, dates and terms', () => {
+    const body = built();
+    expect(body.detail.invoice_number).toBe('INV-2026-0031');
+    expect(body.detail.invoice_date).toBe('2026-11-04'); // 03:30Z is still the 4th in Chicago
+    expect(body.detail.payment_term).toEqual({
+      term_type: 'DUE_ON_DATE_SPECIFIED',
+      due_date: '2026-11-20',
+    });
+    expect(body.detail.memo).toBe(`foreman:${invoice.id}`);
+    expect(body.detail.currency_code).toBe('USD');
+  });
+  it('is due on receipt without a due date', () => {
+    expect(built({ ...invoice, dueDate: null }).detail.payment_term).toEqual({
+      term_type: 'DUE_ON_RECEIPT',
+    });
+  });
+  it('dates an invoice with no issue timestamp today, in the organization zone', () => {
+    expect(built({ ...invoice, issuedAt: null }).detail.invoice_date).toBe('2026-11-05');
+  });
+  it('taxes only taxable lines, at the invoice rate', () => {
+    const body = built();
+    expect(body.items[0].tax).toBeUndefined();
+    expect(body.items[1].tax).toEqual({ name: 'Sales tax', percent: '8.25' });
+  });
+  it('formats quantities and money as PayPal wants them', () => {
+    const body = built();
+    expect(body.items[1].quantity).toBe('1.5');
+    expect(body.items[1].unit_amount).toEqual({ currency_code: 'USD', value: '300.00' });
+    expect(body.items[0].quantity).toBe('1');
+    expect(body.items[0].unit_of_measure).toBe('QUANTITY');
+  });
+  it('carries a credit as an invoice-level discount', () => {
+    expect(built().amount?.breakdown.discount.invoice_discount.amount).toEqual({
+      currency_code: 'USD',
+      value: '50.00',
+    });
+  });
+  it('omits the discount when there is no credit', () => {
+    expect(built({ ...invoice, credits: 0 }).amount).toBeUndefined();
+  });
+  it('uses the display name for a person and the company name for a company', () => {
+    expect(built().primary_recipients[0].billing_info.business_name).toBe('Mary Ann Lee');
+    expect(
+      built(invoice, org, { ...client, companyName: 'Lee Holdings' }).primary_recipients[0]
+        .billing_info.business_name,
+    ).toBe('Lee Holdings');
+  });
+  it('normalises the email', () => {
+    expect(built().primary_recipients[0].billing_info.email_address).toBe('mary@example.com');
+  });
+  it('refuses an unusable email, naming the client', () => {
+    expect(buildInvoiceRequest(invoice, org, { ...client, email: 'not-an-email' }, now)).toEqual({
+      ok: false,
+      error: 'Add a valid email address to Mary Ann Lee first; PayPal sends the invoice to it.',
+    });
+    expect(buildInvoiceRequest(invoice, org, { ...client, email: null }, now)).toMatchObject({
+      ok: false,
+    });
+  });
+  it('refuses a zero quantity, naming the line', () => {
+    const bad = { ...invoice, lines: [lines[0], { ...lines[1], quantity: 0 }] };
+    expect(buildInvoiceRequest(bad, org, client, now)).toEqual({
+      ok: false,
+      error: 'Line 2 has a quantity of zero. Fix it on the invoice first.',
+    });
+  });
+  it('splits a long description at 200 characters', () => {
+    const long = 'x'.repeat(250);
+    const body = built({ ...invoice, lines: [{ ...lines[0], description: long }] });
+    expect(body.items[0].name).toHaveLength(200);
+    expect(body.items[0].description).toBe('x'.repeat(50));
+    expect(built().items[0].description).toBeUndefined();
+  });
+  it('fixes the configuration', () => {
+    expect(built().configuration).toEqual({
+      tax_calculated_after_discount: false,
+      tax_inclusive: false,
+      allow_tip: false,
+      partial_payment: { allow_partial_payment: false },
+    });
+  });
+  it('writes the note, names the business, and sends the logo only over https', () => {
+    const body = built();
+    expect(body.detail.note).toBe(
+      "Invoice INV-2026-0031 from PT's Tactical Renovations. Pay securely with the button below.",
+    );
+    expect(body.invoicer).toEqual({
+      business_name: "PT's Tactical Renovations",
+      logo_url: 'https://example.test/logo.png',
+    });
+    const withInstructions = built({ ...invoice, paymentInstructions: 'Checks to PO Box 1' });
+    expect(withInstructions.detail.note.endsWith(' Checks to PO Box 1')).toBe(true);
+    expect(built(invoice, { ...org, logoUrl: 'http://x' }).invoicer.logo_url).toBeUndefined();
+  });
+});
+
+describe('helpers', () => {
+  it('calendarDateInZone', () => {
+    expect(calendarDateInZone(new Date('2026-11-05T03:30:00Z'), 'America/Chicago')).toBe(
+      '2026-11-04',
+    );
+    expect(calendarDateInZone(new Date('2026-11-05T03:30:00Z'), 'UTC')).toBe('2026-11-05');
+  });
+  it('formatQuantity', () => {
+    expect(formatQuantity('1.5000')).toBe('1.5');
+    expect(formatQuantity(2)).toBe('2');
+    expect(formatQuantity('0.25')).toBe('0.25');
+    expect(formatQuantity('0')).toBeNull();
+    expect(formatQuantity(-1)).toBeNull();
+    expect(formatQuantity('abc')).toBeNull();
+  });
+  it('money', () => {
+    expect(money('300')).toBe('300.00');
+    expect(money(12.5)).toBe('12.50');
+  });
+  it('totalsAgree', () => {
+    expect(totalsAgree('1250.00', 1250)).toBe(true);
+    expect(totalsAgree('1250.01', 1250)).toBe(false);
+    expect(totalsAgree('x', 1250)).toBe(false);
+  });
+});
+
+describe('sendPreconditions', () => {
+  const base = {
+    status: 'sent' as const,
+    clientEmail: 'a@b.co',
+    clientName: 'A',
+    paypalInvoiceId: null,
+    paypalSentAt: null,
+    connectionLive: true,
+  };
+  it('refuses without a connection', () => {
+    expect(sendPreconditions({ ...base, connectionLive: false })).toEqual({
+      ok: false,
+      error: 'Connect PayPal in Settings first.',
+    });
+  });
+  it('refuses a draft', () => {
+    expect(sendPreconditions({ ...base, status: 'draft' })).toEqual({
+      ok: false,
+      error: 'Issue the invoice first; its amounts have to be locked before a client can pay them.',
+    });
+  });
+  it('refuses a void invoice the same way', () => {
+    expect(sendPreconditions({ ...base, status: 'void' })).toMatchObject({ ok: false });
+  });
+  it('refuses a paid invoice', () => {
+    expect(sendPreconditions({ ...base, status: 'paid' })).toEqual({
+      ok: false,
+      error: 'This invoice is already paid.',
+    });
+  });
+  it('refuses without an email', () => {
+    expect(sendPreconditions({ ...base, clientEmail: null })).toEqual({
+      ok: false,
+      error: 'Add an email address to A first; PayPal sends the invoice to it.',
+    });
+  });
+  it('refuses a second send', () => {
+    expect(
+      sendPreconditions({ ...base, paypalInvoiceId: 'INV2-X', paypalSentAt: new Date(2026, 10, 5) }),
+    ).toEqual({ ok: false, error: 'Already sent through PayPal on 11/5/2026.' });
+  });
+  it('allows a retry when created but not sent', () => {
+    expect(sendPreconditions({ ...base, paypalInvoiceId: 'INV2-X' })).toEqual({
+      ok: true,
+      retry: true,
+    });
+  });
+  it('allows a fresh send', () => {
+    expect(sendPreconditions(base)).toEqual({ ok: true, retry: false });
+  });
+});
+
+describe('explainPayPalError', () => {
+  it('names a duplicate number', () => {
+    expect(
+      explainPayPalError(
+        422,
+        { name: 'UNPROCESSABLE_ENTITY', details: [{ issue: 'DUPLICATE_INVOICE_NUMBER' }] },
+        'INV-1',
+      ),
+    ).toBe(
+      "PayPal already has an invoice numbered INV-1. Change the number on PayPal's side or void and re-issue here.",
+    );
+  });
+  it('names bad credentials', () => {
+    expect(explainPayPalError(401, {}, 'INV-1')).toBe(
+      'PayPal refused the client id and secret. Check them in Settings.',
+    );
+  });
+  it('falls back to the status and name', () => {
+    expect(explainPayPalError(500, { name: 'INTERNAL_SERVER_ERROR' }, 'INV-1')).toBe(
+      'PayPal returned 500 (INTERNAL_SERVER_ERROR). Nothing was sent; try again in a minute.',
+    );
+    expect(explainPayPalError(503, null, 'INV-1')).toBe(
+      'PayPal returned 503. Nothing was sent; try again in a minute.',
+    );
   });
 });

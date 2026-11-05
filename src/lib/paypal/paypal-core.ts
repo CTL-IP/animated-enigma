@@ -13,6 +13,8 @@
  */
 
 import { parseEncryptionKey } from '@/lib/google/google-core';
+import { isEmailAddress } from '@/lib/email/email-core';
+import { toNum } from '@/lib/catalog/catalog-core';
 import { formatCalendarDate, type InvoiceStatus, type PaymentMethod } from '@/lib/invoices/invoices-core';
 
 // ── Environment ──────────────────────────────────────────────────────────────
@@ -219,4 +221,294 @@ export function readWebhookHeaders(get: (name: string) => string | null): Webhoo
     authAlgo: read('paypal-auth-algo'),
   };
   return Object.values(headers).every((v) => v.length > 0) ? headers : null;
+}
+
+// ── Building the PayPal invoice from the Foreman's ───────────────────────────
+
+export interface ForemanInvoiceForPayPal {
+  id: string;
+  invoiceNumber: string;
+  issuedAt: Date | null;
+  /** `YYYY-MM-DD` or null. */
+  dueDate: string | null;
+  /** A percentage: 8.25 means 8.25%. */
+  taxRatePercent: number;
+  credits: number;
+  total: number;
+  paymentInstructions: string | null;
+  lines: { description: string; quantity: string | number; unitPrice: string | number; taxable: boolean }[];
+}
+
+export interface OrgForPayPal {
+  name: string;
+  logoUrl: string | null;
+  timezone: string;
+}
+
+export interface ClientForPayPal {
+  displayName: string;
+  companyName: string | null;
+  email: string | null;
+}
+
+export interface PayPalMoney {
+  currency_code: string;
+  value: string;
+}
+
+export interface PayPalInvoiceItem {
+  name: string;
+  description?: string;
+  quantity: string;
+  unit_amount: PayPalMoney;
+  tax?: { name: string; percent: string };
+  unit_of_measure: 'QUANTITY';
+}
+
+/** The subset of PayPal's create-invoice request the app sends. */
+export interface PayPalInvoiceBody {
+  detail: {
+    invoice_number: string;
+    invoice_date: string;
+    currency_code: 'USD';
+    note: string;
+    memo: string;
+    payment_term: { term_type: 'DUE_ON_DATE_SPECIFIED'; due_date: string } | { term_type: 'DUE_ON_RECEIPT' };
+  };
+  invoicer: { business_name: string; logo_url?: string };
+  primary_recipients: [{ billing_info: { business_name: string; email_address: string } }];
+  items: PayPalInvoiceItem[];
+  configuration: {
+    tax_calculated_after_discount: false;
+    tax_inclusive: false;
+    allow_tip: false;
+    partial_payment: { allow_partial_payment: false };
+  };
+  amount?: { breakdown: { discount: { invoice_discount: { amount: PayPalMoney } } } };
+}
+
+export type BuildResult = { ok: true; body: PayPalInvoiceBody } | { ok: false; error: string };
+
+const CURRENCY = 'USD';
+const ITEM_NAME_MAX = 200;
+const ITEM_DESCRIPTION_MAX = 1000;
+
+/**
+ * A calendar day in a named zone, as `YYYY-MM-DD`. An invoice issued at
+ * 21:30 in Dallas is a 5 November invoice even though the stored instant
+ * is already the 6th in UTC; the client's copy has to say what the office
+ * clock said.
+ */
+export function calendarDateInZone(instant: Date, timeZone: string): string {
+  const options: Intl.DateTimeFormatOptions = { year: 'numeric', month: '2-digit', day: '2-digit' };
+  let formatter: Intl.DateTimeFormat;
+  try {
+    formatter = new Intl.DateTimeFormat('en-CA', { ...options, timeZone });
+  } catch {
+    formatter = new Intl.DateTimeFormat('en-CA', { ...options, timeZone: 'UTC' });
+  }
+  return formatter.format(instant);
+}
+
+/**
+ * PayPal takes a quantity as a decimal string with up to five places; the
+ * Foreman stores four. Trailing zeros are dropped so `1.5000` reads as `1.5`
+ * on the client's copy. Null for anything that is not a positive number —
+ * a zero-quantity line is a mistake on the invoice, not something to send.
+ */
+export function formatQuantity(value: string | number): string | null {
+  const n = toNum(value);
+  if (!Number.isFinite(n) || n <= 0) return null;
+  return Number(n.toFixed(4)).toString();
+}
+
+/** Two decimals, as the string PayPal's money fields want. */
+export function money(value: string | number): string {
+  return toNum(value).toFixed(2);
+}
+
+/** PayPal's computed total against the Foreman's, to the cent. */
+export function totalsAgree(paypalValue: string, foremanTotal: number): boolean {
+  const theirs = Number(paypalValue);
+  if (!Number.isFinite(theirs)) return false;
+  return Math.abs(theirs - Math.round(foremanTotal * 100) / 100) < 0.005;
+}
+
+function normaliseEmail(value: string | null | undefined): string | null {
+  const email = value?.trim().toLowerCase() ?? '';
+  return email.length > 0 && isEmailAddress(email) ? email : null;
+}
+
+/**
+ * The PayPal invoice request for a Foreman invoice. Returns the first
+ * problem only, phrased for the person who can fix it.
+ *
+ * Tax goes on the taxable lines only, at the invoice's rate, which is what
+ * keeps exempt labor exempt on the client's copy; a credit becomes an
+ * invoice-level discount; and the configuration is fixed — no tip prompt, no
+ * partial payment, tax before discount — because the Foreman already decided
+ * those.
+ */
+export function buildInvoiceRequest(
+  invoice: ForemanInvoiceForPayPal,
+  org: OrgForPayPal,
+  client: ClientForPayPal,
+  now: Date = new Date(),
+): BuildResult {
+  const email = normaliseEmail(client.email);
+  if (!email) {
+    return {
+      ok: false,
+      error: `Add a valid email address to ${client.displayName} first; PayPal sends the invoice to it.`,
+    };
+  }
+
+  const items: PayPalInvoiceItem[] = [];
+  for (const [index, line] of invoice.lines.entries()) {
+    const quantity = formatQuantity(line.quantity);
+    if (!quantity) {
+      return {
+        ok: false,
+        error: `Line ${index + 1} has a quantity of zero. Fix it on the invoice first.`,
+      };
+    }
+    const description = line.description.trim();
+    const item: PayPalInvoiceItem = {
+      name: description.slice(0, ITEM_NAME_MAX),
+      quantity,
+      unit_amount: { currency_code: CURRENCY, value: money(line.unitPrice) },
+      unit_of_measure: 'QUANTITY',
+    };
+    if (description.length > ITEM_NAME_MAX) {
+      item.description = description.slice(ITEM_NAME_MAX, ITEM_NAME_MAX + ITEM_DESCRIPTION_MAX);
+    }
+    if (line.taxable && invoice.taxRatePercent > 0) {
+      item.tax = { name: 'Sales tax', percent: String(invoice.taxRatePercent) };
+    }
+    items.push(item);
+  }
+
+  const instructions = invoice.paymentInstructions?.trim();
+  const note =
+    `Invoice ${invoice.invoiceNumber} from ${org.name}. Pay securely with the button below.` +
+    (instructions ? ` ${instructions}` : '');
+
+  const invoicer: PayPalInvoiceBody['invoicer'] = { business_name: org.name };
+  if (org.logoUrl && /^https:\/\//i.test(org.logoUrl)) invoicer.logo_url = org.logoUrl;
+
+  const body: PayPalInvoiceBody = {
+    detail: {
+      invoice_number: invoice.invoiceNumber,
+      invoice_date: calendarDateInZone(invoice.issuedAt ?? now, org.timezone),
+      currency_code: CURRENCY,
+      note,
+      memo: `foreman:${invoice.id}`,
+      payment_term: invoice.dueDate
+        ? { term_type: 'DUE_ON_DATE_SPECIFIED', due_date: invoice.dueDate }
+        : { term_type: 'DUE_ON_RECEIPT' },
+    },
+    invoicer,
+    primary_recipients: [
+      {
+        billing_info: {
+          business_name: client.companyName?.trim() || client.displayName,
+          email_address: email,
+        },
+      },
+    ],
+    items,
+    configuration: {
+      tax_calculated_after_discount: false,
+      tax_inclusive: false,
+      allow_tip: false,
+      partial_payment: { allow_partial_payment: false },
+    },
+  };
+
+  const credits = toNum(invoice.credits);
+  if (credits > 0) {
+    body.amount = {
+      breakdown: {
+        discount: { invoice_discount: { amount: { currency_code: CURRENCY, value: money(credits) } } },
+      },
+    };
+  }
+
+  return { ok: true, body };
+}
+
+// ── Whether an invoice can be sent through PayPal right now ──────────────────
+
+export interface SendPreconditionInput {
+  status: InvoiceStatus;
+  clientEmail: string | null;
+  clientName: string;
+  paypalInvoiceId: string | null;
+  paypalSentAt: Date | null;
+  connectionLive: boolean;
+}
+
+/**
+ * The refusals, in the order a person would want to hear them: no connection
+ * at all before anything about this invoice, the invoice's own state before
+ * the client's record. `retry` is true when a PayPal invoice exists but was
+ * never sent — the send is tried again against it rather than a second
+ * invoice being created.
+ */
+export function sendPreconditions(
+  input: SendPreconditionInput,
+): { ok: true; retry: boolean } | { ok: false; error: string } {
+  if (!input.connectionLive) return { ok: false, error: 'Connect PayPal in Settings first.' };
+  if (input.status === 'draft' || input.status === 'void') {
+    return {
+      ok: false,
+      error: 'Issue the invoice first; its amounts have to be locked before a client can pay them.',
+    };
+  }
+  if (input.status === 'paid') return { ok: false, error: 'This invoice is already paid.' };
+  if (!input.clientEmail?.trim()) {
+    return {
+      ok: false,
+      error: `Add an email address to ${input.clientName} first; PayPal sends the invoice to it.`,
+    };
+  }
+  if (input.paypalInvoiceId && input.paypalSentAt) {
+    return {
+      ok: false,
+      error: `Already sent through PayPal on ${formatCalendarDate(input.paypalSentAt)}.`,
+    };
+  }
+  return { ok: true, retry: Boolean(input.paypalInvoiceId) };
+}
+
+// ── PayPal's errors, in words ────────────────────────────────────────────────
+
+function readErrorName(body: unknown): string | null {
+  if (body && typeof body === 'object' && 'name' in body && typeof body.name === 'string') {
+    return body.name;
+  }
+  return null;
+}
+
+function readErrorIssues(body: unknown): string[] {
+  if (!body || typeof body !== 'object' || !('details' in body) || !Array.isArray(body.details)) {
+    return [];
+  }
+  return body.details
+    .map((d: unknown) => (d && typeof d === 'object' && 'issue' in d ? String(d.issue) : ''))
+    .filter((issue: string) => issue.length > 0);
+}
+
+/**
+ * What a failed PayPal call means to the person who pressed the button.
+ * The duplicate-number issue code is PayPal's documented one; the sandbox
+ * run confirms the spelling.
+ */
+export function explainPayPalError(status: number, body: unknown, invoiceNumber: string): string {
+  if (status === 401) return 'PayPal refused the client id and secret. Check them in Settings.';
+  if (readErrorIssues(body).includes('DUPLICATE_INVOICE_NUMBER')) {
+    return `PayPal already has an invoice numbered ${invoiceNumber}. Change the number on PayPal's side or void and re-issue here.`;
+  }
+  const name = readErrorName(body);
+  return `PayPal returned ${status}${name ? ` (${name})` : ''}. Nothing was sent; try again in a minute.`;
 }

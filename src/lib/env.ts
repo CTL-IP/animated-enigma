@@ -33,6 +33,10 @@ const serverSchema = z.object({
   GOOGLE_OAUTH_REDIRECT_URI: z.string().url().optional(),
   /** 32 random bytes, base64. Encrypts stored refresh tokens app-side. */
   GOOGLE_TOKEN_ENCRYPTION_KEY: z.string().optional(),
+  // PayPal client payments (Task 34). The business's client id and secret are
+  // per organization and live in paypal_connections; this is the key that
+  // encrypts the secret before it reaches the database.
+  PAYPAL_CREDENTIAL_ENCRYPTION_KEY: z.string().optional(),
   // Platform billing. All optional: with any absent, the Billing screen says
   // what is missing and nobody can subscribe. The four price ids are the
   // monthly base of each tier, created by `pnpm stripe:setup`.

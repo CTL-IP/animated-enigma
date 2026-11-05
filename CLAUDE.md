@@ -108,7 +108,7 @@ never by the app on its own say-so.
 
 ## Skills
 
-Four skills in `.claude/skills/` cover the recurring procedures. Use them. The bid-writing skills
+Five skills in `.claude/skills/` cover the recurring procedures. Use them. The bid-writing skills
 (`rfp-response`, `gov-contract-review`, `hud-pha-procurement`) live in their own repository,
 [`CTL-IP/bid-skills`](https://github.com/CTL-IP/bid-skills), not here: they are not about this
 application. Its `install.sh` links them into Claude Code, Codex and Cursor at user level.
@@ -119,6 +119,7 @@ application. Its `install.sh` links them into Claude Code, Codex and Cursor at u
 | `db-change` | Any edit to `schema.ts`, any migration, constraint, trigger, policy |
 | `ship-check` | Before every commit, and before saying anything is done |
 | `texas-tax` | Any Texas tax question — a job's treatment, a Comptroller publication, a due date, a penalty, franchise tax, vehicle rental tax — and any work in `src/lib/texas-tax` or `src/mcp/texas-tax` |
+| `paypal` | Anything touching the business's PayPal account through the connector — invoicing a client, sending or chasing a PayPal invoice, finding whether a client paid, recording that payment in the Foreman, disputes — and any talk of a `src/lib/paypal/` seam |
 
 ## Hooks
 
@@ -328,6 +329,9 @@ Not "Warning: incomplete data." Not "Invalid range."
    template carries visible `[BRACKETED]` blanks and the app warns while any
    remain.
 4. **No client payment portal or card processing.** Payments are recorded by hand.
+   The business collects on PayPal through the claude.ai connector; the `paypal`
+   skill covers using it and carrying a payment back into the ledger. Nothing in
+   the app calls PayPal.
 5. **Storage uploads are unverified end to end.** The `project-files` bucket
    exists and is private, but no file has actually been pushed through.
 6. **Texas tax tooling.** Approve the `texas-tax` MCP server the first time Claude

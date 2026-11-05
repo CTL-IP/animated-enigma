@@ -80,6 +80,57 @@ is a public-shaped file in a repository. Reference a variable by name only.
 
 ## Log
 
+## 2026-11-05 — PayPal connector learned and written down as a skill
+**By:** Claude (session on `claude/new-session-w4xlnw`) · **Commit:** the one carrying this entry
+
+Patrick dropped PayPal's developer-doc index and its Revenue page and said
+these are tools he wants used. The business collects on PayPal and the PayPal
+connector is wired into this claude.ai account, so the work was to learn that
+connector against the real account and capture it where the next session
+finds it: `.claude/skills/paypal/SKILL.md`. No application code changed.
+
+**What was verified, read-only, on 2026-11-05.** `list_invoices`,
+`list_transactions` (one 31-day window), `list_disputes` and
+`list_payment_links` all returned live data from the business account:
+invoices in every lifecycle status, a month of balance-affecting records
+including a card payment against an invoice with its fee, no payment links, no
+disputes. Nothing was created, sent, or marked. No invoice, link or email has
+been produced from a Claude session through this connector as far as this
+repository knows.
+
+**Decisions in the skill, and what was rejected.**
+- The Foreman invoice stays the record and the tax document; PayPal is the
+  collection page. The alternative — let PayPal be the invoice and copy it back
+  later — was rejected because the connector's invoice form takes one tax
+  percentage for the whole invoice, and the Foreman taxes per line because labor
+  on a residential repair can be exempt while materials are not. So the PayPal
+  invoice carries the Foreman total with tax left blank and itemized on the
+  Foreman invoice, and the Foreman invoice number rides in the product name and
+  note so the transaction can be matched later.
+- A PayPal payment is recorded in the Foreman at the **gross** amount, with the
+  PayPal transaction id as the reference number and the fee in the notes. The
+  fee is a cost, not a short payment.
+- Payment links are documented as unsuitable for job money: no customer tie, no
+  invoice number, so nothing to reconcile against.
+- The future `src/lib/paypal/` seam is sketched in the Stripe shape (pure core,
+  one client file, a webhook applier, a route that verifies the raw body) but
+  deliberately not built. `docs/tech-stack.md` chose Stripe for client payments,
+  and reversing that is Patrick's call, as are the two decisions underneath it:
+  a `paypal` payment-method value, and a client token page for invoices.
+
+**Found, not fixed.**
+- The PayPal account holds a run of stale draft invoices that look like a
+  bulk-create session repeated; they should be reviewed and cancelled in the
+  dashboard. The connector cannot cancel or delete. No counts or amounts here on
+  purpose: this file is public.
+- `payments.processor_fee` exists in the schema, but the record-payment form and
+  `recordPayment` never read it, so a processor's fee cannot be recorded today
+  except in notes.
+- `CLAUDE.md` and the `ship-check` skill still name `claude/trusting-tesla-8u5367`
+  as the branch and carry one past session's URL in the commit-trailer example.
+  This session pushed its own `claude/*` branch, which the guard allows, and its
+  commit trailer carries this session's real URL rather than the example's.
+
 ## 2026-10-15 — Estimate Tax % holds 8.25%, and saving rates no longer rewrites it
 **By:** Claude (session on `claude/loving-pasteur-hyl6er`) · **Commit:** the one carrying this entry
 

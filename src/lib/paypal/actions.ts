@@ -328,13 +328,12 @@ export async function sendInvoiceThroughPayPal(_prev: FormState, formData: FormD
 
     if (!paypalInvoiceId) return { error: 'Something went wrong talking to PayPal. Nothing was sent; try again in a minute.' };
     await conn.client.sendInvoice(paypalInvoiceId);
-    const fetched = await conn.client.getInvoice(paypalInvoiceId);
+    // The client has the email from this moment. Stamp it now, before the
+    // read-back, so a failure reading the pay link can never leave the screen
+    // offering to send a second time.
     await db
       .update(schema.invoices)
-      .set({
-        paypalPayUrl: fetched.detail?.metadata?.recipient_view_url ?? null,
-        paypalSentAt: new Date(),
-      })
+      .set({ paypalSentAt: new Date() })
       .where(and(eq(schema.invoices.organizationId, orgId), eq(schema.invoices.id, invoiceId)));
     logger.info('paypal: invoice sent', { orgId, invoiceId, paypalInvoiceId });
   } catch (error) {
@@ -351,7 +350,25 @@ export async function sendInvoiceThroughPayPal(_prev: FormState, formData: FormD
     return { error: 'Something went wrong talking to PayPal. Nothing was sent; try again in a minute.' };
   }
 
+  // Reading the pay link back is its own step: the send already happened and
+  // the record already says so, so a failure here is reported as exactly that.
+  let readBack: string | null = null;
+  try {
+    const fetched = await conn.client.getInvoice(paypalInvoiceId);
+    await db
+      .update(schema.invoices)
+      .set({ paypalPayUrl: fetched.detail?.metadata?.recipient_view_url ?? null })
+      .where(and(eq(schema.invoices.organizationId, orgId), eq(schema.invoices.id, invoiceId)));
+  } catch (error) {
+    readBack =
+      error instanceof PayPalApiError
+        ? explainPayPalError(error.status, error.body, invoice.invoiceNumber, 'after_send')
+        : 'The invoice was sent, but the pay link could not be read back. Reload in a minute.';
+    logger.warn('paypal: pay link read-back failed', { orgId, invoiceId, message: describe(error) });
+  }
+
   revalidatePath(`/invoices/${invoiceId}`);
   revalidatePath('/invoices');
-  return { message: `Sent through PayPal to ${recipient?.email ?? clientName}.` };
+  const to = recipient?.email ?? clientName;
+  return { message: readBack ? `Sent through PayPal to ${to}. ${readBack}` : `Sent through PayPal to ${to}.` };
 }

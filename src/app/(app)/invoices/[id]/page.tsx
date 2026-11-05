@@ -32,7 +32,7 @@ import { TaxCheckCard } from '@/components/texas-tax/tax-check-card';
 import { InvoiceForm } from './invoice-form';
 import { PaymentForm } from './payment-form';
 import { InvoicePayPalCard, type InvoicePayPalState } from '@/components/paypal/invoice-paypal-card';
-import { providerStatus as paypalProviderStatus } from '@/lib/paypal/paypal-core';
+import { paypalPaymentOn, providerStatus as paypalProviderStatus } from '@/lib/paypal/paypal-core';
 import { connectionSummaryFor } from '@/lib/paypal/queries';
 import { paypalEnv } from '@/lib/paypal/connection';
 
@@ -82,11 +82,12 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
   // may write sees what to do next. An invoice paid some other way shows no
   // PayPal card at all — "paid through PayPal" would be a lie.
   const paypalStatus = paypalProviderStatus(paypalEnv());
+  const paypalPaidOn = paypalPaymentOn(row.applied);
   const paypalState: InvoicePayPalState | null = (() => {
     if (!mayWrite && !invoice.paypalInvoiceId) return null;
     if (!paypalStatus.configured || !paypalConnection?.live) return 'unconfigured';
     if (editable || stored === 'void') return 'not_issued';
-    if (display === 'paid') return invoice.paypalSentAt ? 'paid' : null;
+    if (display === 'paid') return paypalPaidOn ? 'paid' : null;
     if (invoice.paypalInvoiceId && invoice.paypalSentAt) return 'sent';
     if (invoice.paypalInvoiceId) return 'created';
     if (!recipient?.email) return 'no_email';
@@ -204,7 +205,7 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
           clientId={invoice.clientId}
           payUrl={invoice.paypalPayUrl}
           sentOn={invoice.paypalSentAt ? formatCalendarDate(invoice.paypalSentAt) : null}
-          paidOn={row.applied[0] ? formatCalendarDate(row.applied[0].paymentDate) : null}
+          paidOn={paypalPaidOn ? formatCalendarDate(paypalPaidOn) : null}
           settingsMissing={paypalStatus.missing}
           mayWrite={mayWrite}
         />

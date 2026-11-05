@@ -1,13 +1,15 @@
 ---
 name: paypal
-description: The PayPal connector wired into this claude.ai account — invoices, transactions, disputes and payment links on the business's real PayPal account. Use when asked to invoice a client through PayPal, send or chase a PayPal invoice, find out whether and how a client paid, record a PayPal payment in the Foreman, reconcile PayPal against the ledger, check for disputes, or decide whether PayPal belongs in the app (the `src/lib/paypal/` seam that does not exist yet). Trigger on any mention of PayPal, a PayPal invoice number, or "did the client pay".
+description: The PayPal connector wired into this claude.ai account — invoices, transactions, disputes and payment links on the business's real PayPal account. Use when asked to invoice a client through PayPal, send or chase a PayPal invoice, find out whether and how a client paid, record a PayPal payment in the Foreman, reconcile PayPal against the ledger, check for disputes, or work on the app's own PayPal integration (`src/lib/paypal/`, Task 34). Trigger on any mention of PayPal, a PayPal invoice number, or "did the client pay".
 ---
 
 # PayPal
 
-The Foreman records client payments by hand (CLAUDE.md, open item 4). PayPal is
-the rail the business actually collects on today, and it is connected to this
-claude.ai account as a connector. This skill is how to use that connector
+PayPal is the rail the business collects on. Since Task 34 the Foreman sends
+issued invoices through PayPal itself and posts the payments it collects into
+the ledger through a webhook (the last section). PayPal is also connected to
+this claude.ai account as a connector, for looking at the account and for
+invoices that never went through the Foreman. This skill is how to use that connector
 without creating a mess in a live money account, and how a PayPal payment gets
 back into the Foreman's ledger so the numbers there stay true.
 
@@ -71,7 +73,11 @@ PayPal does not store *overdue* as a status; it is derived from the due date,
 the same as here. A PayPal invoice created without a due date is due the day it
 is created, which reads as overdue by the next morning. Always set one.
 
-## Invoicing a job through PayPal
+## Invoicing a job through PayPal by hand
+
+For a Foreman invoice, do not do this: open the invoice in the app and press
+**Send through PayPal** (last section). The steps below are for a bill that
+has no Foreman invoice behind it.
 
 1. **Issue the Foreman invoice first.** Lines, per-line tax, number, due date —
    the Foreman is the tax document and the ledger. If it is not issued, there is
@@ -90,9 +96,10 @@ is created, which reads as overdue by the next morning. Always set one.
 4. **Confirm before sending.** Read back recipient email, amount, due date, and
    the note. Then `send_invoice` with that invoice's id, once. The form copies
    the business by default; leave that on, it is the only email trail.
-5. **Log it** in the Foreman invoice's notes: the PayPal invoice id
-   (`INV2-…`) and the date sent. The Foreman has no column for a processor's
-   invoice id, and nothing should pretend otherwise.
+5. **Log it.** A bill sent this way has no Foreman invoice, so there is
+   nowhere in the app to record the PayPal id; keep it with the job's notes.
+   (A Foreman invoice sent through the app stores its PayPal id, pay link and
+   send time itself.)
 
 ### When not to use a payment link
 
@@ -104,6 +111,11 @@ settled. Use invoices for anything that appears on a Foreman invoice.
 
 ## A payment came in: getting it into the Foreman
 
+If the invoice was sent through the app, the webhook has already recorded the
+payment: look for a payment whose reference is a 17-character PayPal
+transaction id. Do not record it a second time. The steps below are for a
+payment on a bill that never went through the app.
+
 `list_transactions` over a window that covers the payment (31 days at most;
 split a longer search). Find the client's payment by its `invoice_id` field —
 that is PayPal's *invoice number*, not the `INV2-…` id — or by amount and
@@ -112,7 +124,7 @@ date. Then record it in the Foreman (Invoices → Record payment) with:
 | Foreman field | From PayPal |
 |---|---|
 | Amount | `transaction_amount.value` — the **gross**. The client paid the invoice in full; the fee is the business's cost, not a short payment. |
-| Method | `card` when `instrument_type` is Credit Card or Debit Card; `other` when it is PayPal (wallet or balance). ACH through PayPal still arrives as PayPal. |
+| Method | `card` when `instrument_type` is Credit Card or Debit Card; `paypal` when it is PayPal (wallet, balance or Pay Later). ACH through PayPal still arrives as PayPal. |
 | Payment date | `transaction_initiation_date`, as a date. |
 | Reference number | `transaction_id` (17 characters). This is the key a future webhook would use for idempotency. |
 | Notes | The PayPal invoice id and the fee: `PayPal INV2-… · fee 105.19`. |

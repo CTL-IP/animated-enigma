@@ -504,13 +504,40 @@ function readErrorIssues(body: unknown): string[] {
  * The duplicate-number issue code is PayPal's documented one; the sandbox
  * run confirms the spelling.
  */
-export function explainPayPalError(status: number, body: unknown, invoiceNumber: string): string {
+export function explainPayPalError(
+  status: number,
+  body: unknown,
+  invoiceNumber: string,
+  phase: 'before_send' | 'after_send' = 'before_send',
+): string {
   if (status === 401) return 'PayPal refused the client id and secret. Check them in Settings.';
   if (readErrorIssues(body).includes('DUPLICATE_INVOICE_NUMBER')) {
     return `PayPal already has an invoice numbered ${invoiceNumber}. Change the number on PayPal's side or void and re-issue here.`;
   }
   const name = readErrorName(body);
-  return `PayPal returned ${status}${name ? ` (${name})` : ''}. Nothing was sent; try again in a minute.`;
+  const returned = `${status}${name ? ` (${name})` : ''}`;
+  // Once the send has gone through, the client has the email. Saying
+  // "nothing was sent" at that point would be the one lie this screen must
+  // never tell.
+  if (phase === 'after_send') {
+    return `The invoice was sent, but PayPal returned ${returned} when it was read back. Reload in a minute.`;
+  }
+  return `PayPal returned ${returned}. Nothing was sent; try again in a minute.`;
+}
+
+// ── Which recorded payment came through PayPal ───────────────────────────────
+
+/**
+ * The date of the first PayPal-recorded payment on an invoice, or null. A
+ * payment carries a processor id only when the webhook wrote it; one typed
+ * in by hand after a check arrived has none — so an invoice sent through
+ * PayPal and then paid by check must not read "paid through PayPal".
+ */
+export function paypalPaymentOn(
+  applied: { externalId: string | null; isRefund: boolean | null; paymentDate: string }[],
+): string | null {
+  const paypal = applied.find((p) => Boolean(p.externalId) && !p.isRefund);
+  return paypal?.paymentDate ?? null;
 }
 
 // ── What a fetched PayPal invoice means for the ledger ───────────────────────

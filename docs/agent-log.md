@@ -81,6 +81,47 @@ is a public-shaped file in a repository. Reference a variable by name only.
 
 ## Log
 
+## 2026-11-05 — Task 34 review fix pass
+**By:** Claude (session on `claude/new-session-w4xlnw`) · **Commit:** the one carrying this entry
+
+A fresh reviewer read the whole branch against the spec, the plan and the
+rulings. Nothing critical; five findings worth fixing, all fixed with a test
+that failed first:
+
+- **A send that succeeded but whose pay-link read-back failed said "Nothing
+  was sent" and offered Retry send**, which would have emailed the client
+  twice. `paypal_sent_at` is now stamped the moment PayPal accepts the send;
+  the read-back is its own step and a failure there says "The invoice was
+  sent, but … Reload in a minute."
+- **Skipped webhook transactions lost their reason.** The handler now warns,
+  with each reason, about anything skipped other than a redelivery, so a
+  payment with an unusable amount is no longer indistinguishable in the log
+  from a duplicate. The spec's on-screen "PayPal reported a payment the app
+  could not record" state is **not built**: it needs somewhere to store the
+  fact, and that is a decision for a later task (see below).
+- **"Paid through PayPal on …" could show on an invoice sent through PayPal
+  and then paid by check.** The invoice page now reads the date from the first
+  payment that carries a processor id, which only the webhook writes.
+- **The `paypal` skill still described the world before Task 34** in four
+  places (no seam, payments by hand, no column for the PayPal id, wallet
+  money as `other`). Corrected; the by-hand sections now say when they apply.
+- **The refund write had never run against Postgres.** Two assertions added: a
+  refund row with a negative allocation nets the invoice to zero, and a
+  processor transaction id cannot be recorded twice in an organization.
+
+Gate after the pass: typecheck exit 0; lint clean; `pnpm test` → 1143 tests
+in 62 files (7 new); `bash scripts/test-rls.sh` → 242 PASS (2 new).
+
+**Deferred, for Patrick to weigh (the reviewer's minors, left as they are):**
+a reader without `financials:write` sees "Sent through PayPal on <date> to ."
+because the client email is only loaded for writers; the access token is
+cached per request, not per connection, and the `PayPal-Request-Id` comment
+overstates what it protects; `ensureWebhook` reuses any webhook at the URL
+without checking its event types; `invoiceByPayPalId` takes the first match
+when two organizations share one PayPal account; a webhook id PayPal has
+dropped fails every event quietly while Settings still says "registered";
+thread 16 sits above thread 15 in the table.
+
 ## 2026-11-05 — Task 34: clients pay through PayPal
 **By:** Claude (session on `claude/new-session-w4xlnw`) · **Commit:** the one carrying this entry, and the nine before it
 

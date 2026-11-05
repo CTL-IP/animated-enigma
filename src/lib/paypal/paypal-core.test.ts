@@ -15,6 +15,7 @@ import {
   PAYPAL_EVENTS,
   providerStatus,
   money,
+  paypalPaymentOn,
   readWebhookHeaders,
   sendPreconditions,
   totalsAgree,
@@ -527,5 +528,37 @@ describe('ledgerOpsFor', () => {
       },
     };
     expect(ledgerOpsFor(both, new Set()).map((op) => op.kind)).toEqual(['payment', 'refund']);
+  });
+});
+
+describe('explainPayPalError after a send', () => {
+  it('never says nothing was sent once the invoice has gone out', () => {
+    const text = explainPayPalError(500, { name: 'INTERNAL_SERVER_ERROR' }, 'INV-1', 'after_send');
+    expect(text).toBe(
+      'The invoice was sent, but PayPal returned 500 (INTERNAL_SERVER_ERROR) when it was read back. Reload in a minute.',
+    );
+    expect(text).not.toContain('Nothing was sent');
+  });
+  it('still names bad credentials either way', () => {
+    expect(explainPayPalError(401, {}, 'INV-1', 'after_send')).toBe(
+      'PayPal refused the client id and secret. Check them in Settings.',
+    );
+  });
+});
+
+describe('paypalPaymentOn', () => {
+  it('finds the PayPal-recorded payment, not a hand-recorded one', () => {
+    expect(
+      paypalPaymentOn([
+        { externalId: null, isRefund: false, paymentDate: '2026-11-09' },
+        { externalId: 'TX1', isRefund: false, paymentDate: '2026-11-07' },
+      ]),
+    ).toBe('2026-11-07');
+  });
+  it('is null when every payment was recorded by hand', () => {
+    expect(paypalPaymentOn([{ externalId: null, isRefund: false, paymentDate: '2026-11-09' }])).toBeNull();
+  });
+  it('ignores refunds', () => {
+    expect(paypalPaymentOn([{ externalId: 'RF1', isRefund: true, paymentDate: '2026-11-09' }])).toBeNull();
   });
 });

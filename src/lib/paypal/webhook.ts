@@ -150,6 +150,16 @@ export async function handlePayPalWebhook(
 
   const known = await deps.knownExternalIds(invoice.organizationId, candidateIds(fetched));
   const ops = ledgerOpsFor(fetched, known, now);
+  // A redelivery skips quietly; anything else skipped is a payment PayPal
+  // reports that the ledger will not hold, and someone has to know.
+  const skips = ops.flatMap((op) =>
+    op.kind === 'skip' && op.reason !== 'already recorded'
+      ? [{ externalId: op.externalId, reason: op.reason }]
+      : [],
+  );
+  if (skips.length > 0) {
+    logger.warn('paypal webhook: skipped', { eventId, type, invoiceId: invoice.id, skips });
+  }
   const result = await deps.applyOps(invoice, ops, now);
   logger.info('paypal webhook: applied', {
     eventId,

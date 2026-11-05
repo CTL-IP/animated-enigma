@@ -1,4 +1,5 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { logger } from '@/lib/logger';
 import { PayPalApiError, type PayPalClient } from './client';
 import type { ReadyConnection } from './connection';
 import type { LedgerOp, PayPalFetchedInvoice, WebhookHeaders } from './paypal-core';
@@ -250,5 +251,42 @@ describe('handlePayPalWebhook', () => {
     await expect(handlePayPalWebhook(event('INVOICING.INVOICE.PAID'), headers, deps)).rejects.toThrow(
       'connection reset',
     );
+  });
+});
+
+describe('handlePayPalWebhook — skips worth a warning', () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  it('warns, with the reason, about a payment it could not record', async () => {
+    const warn = vi.spyOn(logger, 'warn').mockImplementation(() => undefined);
+    const bad: PayPalFetchedInvoice = {
+      id: 'INV2-A',
+      status: 'PAID',
+      payments: {
+        transactions: [
+          { type: 'PAYPAL', payment_id: 'TX9', amount: { currency_code: 'USD', value: 'x' } },
+          { type: 'EXTERNAL', method: 'CHECK', amount: { currency_code: 'USD', value: '10.00' } },
+        ],
+      },
+    };
+    const { deps } = fakeDeps({ connectionFor: async () => fakeConnection(bad) });
+    await handlePayPalWebhook(event('INVOICING.INVOICE.PAID'), headers, deps);
+    expect(warn).toHaveBeenCalledWith(
+      'paypal webhook: skipped',
+      expect.objectContaining({
+        invoiceId: 'inv-uuid',
+        skips: [
+          { externalId: 'TX9', reason: 'no usable amount' },
+          { externalId: null, reason: 'external payment; record by hand' },
+        ],
+      }),
+    );
+  });
+
+  it('does not warn about a payment it has already recorded', async () => {
+    const warn = vi.spyOn(logger, 'warn').mockImplementation(() => undefined);
+    const { deps } = fakeDeps({ knownExternalIds: async () => new Set(['TX1']) });
+    await handlePayPalWebhook(event('INVOICING.INVOICE.PAID'), headers, deps);
+    expect(warn).not.toHaveBeenCalledWith('paypal webhook: skipped', expect.anything());
   });
 });

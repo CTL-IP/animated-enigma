@@ -3041,6 +3041,50 @@ begin
   end;
 end $$;
 
+do $$
+declare total numeric;
+begin
+  -- The webhook's refund write: a refund payment row plus a negative
+  -- allocation, so the invoice's paid total nets off. Nothing in the database
+  -- may refuse it, and the processor id must be unique per organization — that
+  -- index is what makes a redelivered PayPal event a no-op.
+  insert into payments
+    (id, organization_id, project_id, client_id, amount, payment_date, method, reference_number,
+     external_id, is_refund)
+  values ('00340aaa-0000-4000-8000-000000000021', '0000000a-0000-4000-8000-000000000001',
+          '000e0aaa-0000-4000-8000-000000000001', '000c0aaa-0000-4000-8000-000000000001',
+          100.00, '2026-11-06', 'card', 'TX-TEST', 'TX-TEST', false);
+  insert into payment_allocations (organization_id, payment_id, invoice_id, amount)
+  values ('0000000a-0000-4000-8000-000000000001', '00340aaa-0000-4000-8000-000000000021',
+          '00340aaa-0000-4000-8000-000000000011', 100.00);
+
+  insert into payments
+    (id, organization_id, project_id, client_id, amount, payment_date, method, reference_number,
+     external_id, is_refund)
+  values ('00340aaa-0000-4000-8000-000000000022', '0000000a-0000-4000-8000-000000000001',
+          '000e0aaa-0000-4000-8000-000000000001', '000c0aaa-0000-4000-8000-000000000001',
+          100.00, '2026-11-07', 'paypal', 'RF-TEST', 'RF-TEST', true);
+  insert into payment_allocations (organization_id, payment_id, invoice_id, amount)
+  values ('0000000a-0000-4000-8000-000000000001', '00340aaa-0000-4000-8000-000000000022',
+          '00340aaa-0000-4000-8000-000000000011', -100.00);
+
+  select coalesce(sum(amount), 0) into total from payment_allocations
+    where invoice_id = '00340aaa-0000-4000-8000-000000000011';
+  if total <> 0 then raise exception 'FAIL: a refund allocation did not net the payment off (sum %)', total; end if;
+  raise notice 'PASS: a PayPal refund is a payment row with a negative allocation, and it nets off';
+
+  begin
+    insert into payments
+      (organization_id, project_id, client_id, amount, payment_date, method, external_id)
+    values ('0000000a-0000-4000-8000-000000000001',
+            '000e0aaa-0000-4000-8000-000000000001', '000c0aaa-0000-4000-8000-000000000001',
+            100.00, '2026-11-06', 'card', 'TX-TEST');
+    raise exception 'FAIL: the same PayPal transaction id was recorded twice — was ALLOWED';
+  exception when unique_violation then
+    raise notice 'PASS: a processor transaction id is recorded once per organization';
+  end;
+end $$;
+
 -- ── As Carl (Org A estimator): may see, may not write ────────────────────────
 reset role;
 set role app_user;

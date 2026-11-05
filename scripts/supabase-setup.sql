@@ -3012,3 +3012,109 @@ drop policy if exists organization_subscriptions_tenant on organization_subscrip
 create policy organization_subscriptions_tenant on organization_subscriptions
   using (organization_id = current_org() and is_member_of(organization_id))
   with check (organization_id = current_org() and is_member_of(organization_id));
+
+-- ═══ Part 31 — Task 34: PayPal client payments ═══
+-- The business's own PayPal REST credentials, one row per organization, and
+-- the PayPal fields on an invoice. The secret is stored only as app-side
+-- ciphertext. Writes are owner-only (`has_role(…, 'owner')`, the database
+-- form of `org:manage`); any member may see the row; nothing deletes it.
+
+alter type payment_method add value if not exists 'paypal';
+
+create table if not exists paypal_connections (
+  id uuid primary key default gen_random_uuid() not null,
+  organization_id uuid not null,
+  environment text not null,
+  client_id text not null,
+  client_secret_ciphertext text not null,
+  webhook_id text,
+  webhook_url text,
+  connected_by uuid,
+  connected_at timestamptz default now() not null,
+  last_verified_at timestamptz,
+  revoked_at timestamptz,
+  created_at timestamptz default now() not null,
+  updated_at timestamptz default now() not null
+);
+
+do $$ begin
+  alter table paypal_connections
+    add constraint paypal_connections_organization_id_organizations_id_fk
+    foreign key (organization_id) references organizations(id) on delete restrict;
+exception when duplicate_object then null; end $$;
+
+do $$ begin
+  alter table paypal_connections
+    add constraint paypal_connections_connected_by_users_id_fk
+    foreign key (connected_by) references users(id);
+exception when duplicate_object then null; end $$;
+
+create unique index if not exists paypal_connections_org_idx
+  on paypal_connections (organization_id);
+
+alter table invoices add column if not exists paypal_invoice_id text;
+alter table invoices add column if not exists paypal_pay_url text;
+alter table invoices add column if not exists paypal_sent_at timestamptz;
+
+create unique index if not exists invoices_org_paypal_invoice_idx
+  on invoices (organization_id, paypal_invoice_id)
+  where paypal_invoice_id is not null;
+
+do $$ begin
+  alter table paypal_connections
+    add constraint paypal_connections_environment_known
+    check (environment in ('sandbox', 'live'));
+exception when duplicate_object then null; end $$;
+
+do $$ begin
+  alter table paypal_connections
+    add constraint paypal_connections_has_client_id
+    check (char_length(client_id) > 0);
+exception when duplicate_object then null; end $$;
+
+do $$ begin
+  alter table paypal_connections
+    add constraint paypal_connections_webhook_id_not_blank
+    check (webhook_id is null or char_length(webhook_id) > 0);
+exception when duplicate_object then null; end $$;
+
+do $$ begin
+  alter table paypal_connections
+    add constraint paypal_connections_revoked_after_connected
+    check (revoked_at is null or revoked_at >= connected_at);
+exception when duplicate_object then null; end $$;
+
+drop trigger if exists paypal_connections_set_updated_at on paypal_connections;
+create trigger paypal_connections_set_updated_at before update on paypal_connections
+  for each row execute function set_updated_at();
+
+alter table paypal_connections enable row level security;
+alter table paypal_connections force row level security;
+
+drop policy if exists paypal_connections_tenant on paypal_connections;
+create policy paypal_connections_tenant on paypal_connections
+  for select
+  using (organization_id = current_org() and is_member_of(organization_id));
+
+drop policy if exists paypal_connections_owner_insert on paypal_connections;
+create policy paypal_connections_owner_insert on paypal_connections
+  for insert
+  with check (
+    organization_id = current_org()
+    and is_member_of(organization_id)
+    and has_role(organization_id, 'owner')
+  );
+
+drop policy if exists paypal_connections_owner_update on paypal_connections;
+create policy paypal_connections_owner_update on paypal_connections
+  for update
+  using (
+    organization_id = current_org()
+    and is_member_of(organization_id)
+    and has_role(organization_id, 'owner')
+  )
+  with check (
+    organization_id = current_org()
+    and is_member_of(organization_id)
+    and has_role(organization_id, 'owner')
+  );

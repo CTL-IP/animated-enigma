@@ -2928,5 +2928,164 @@ begin
   raise notice 'PASS: an organisation sees its own usage-fee basis in full';
 end $$;
 
+-- ═══════════════ PayPal client payments (Task 34) ═══════════════════════════
+-- The connection row is readable by any member and writable by an owner only;
+-- it is revoked, never deleted; its closed lists and ordering are CHECKs. The
+-- three PayPal columns on an invoice stay writable after issue while the
+-- amounts beside them stay frozen.
+
+reset role;
+set role app_user;
+select set_config('request.jwt.claims',
+  '{"sub":"00000aaa-0000-4000-8000-000000000001","org":"0000000a-0000-4000-8000-000000000001"}',
+  false);
+
+do $$
+declare n int;
+begin
+  -- Permitted path: the owner stores the organization's connection.
+  insert into paypal_connections
+    (id, organization_id, environment, client_id, client_secret_ciphertext, connected_by)
+  values ('00340aaa-0000-4000-8000-000000000001',
+          '0000000a-0000-4000-8000-000000000001',
+          'sandbox', 'cid-a', 'v1.x.y.z',
+          '00000aaa-0000-4000-8000-000000000001');
+  raise notice 'PASS: an owner can store the organization''s PayPal connection';
+
+  -- One per organization.
+  begin
+    insert into paypal_connections (organization_id, environment, client_id, client_secret_ciphertext)
+    values ('0000000a-0000-4000-8000-000000000001', 'live', 'cid-a2', 'v1.x.y.z');
+    raise exception 'FAIL: a second PayPal connection for the same organization was ALLOWED';
+  exception when unique_violation then
+    raise notice 'PASS: one PayPal connection per organization';
+  end;
+
+  -- Closed list of environments.
+  begin
+    update paypal_connections set environment = 'prod'
+      where id = '00340aaa-0000-4000-8000-000000000001';
+    raise exception 'FAIL: environment ''prod'' was ALLOWED';
+  exception when check_violation then
+    raise notice 'PASS: a PayPal environment must be sandbox or live';
+  end;
+
+  -- A blank client id is not a credential.
+  begin
+    update paypal_connections set client_id = ''
+      where id = '00340aaa-0000-4000-8000-000000000001';
+    raise exception 'FAIL: a blank PayPal client id was ALLOWED';
+  exception when check_violation then
+    raise notice 'PASS: a PayPal client id cannot be blank';
+  end;
+
+  -- A blank webhook id would look like a registered webhook.
+  begin
+    update paypal_connections set webhook_id = ''
+      where id = '00340aaa-0000-4000-8000-000000000001';
+    raise exception 'FAIL: a blank PayPal webhook id was ALLOWED';
+  exception when check_violation then
+    raise notice 'PASS: a PayPal webhook id is null or non-blank';
+  end;
+
+  -- Cannot be revoked before it was connected.
+  begin
+    update paypal_connections set revoked_at = connected_at - interval '1 hour'
+      where id = '00340aaa-0000-4000-8000-000000000001';
+    raise exception 'FAIL: revoked_at earlier than connected_at was ALLOWED';
+  exception when check_violation then
+    raise notice 'PASS: a PayPal connection cannot be revoked before it began';
+  end;
+
+  -- Revoked, never deleted: there is no delete policy, so even the owner
+  -- removes nothing.
+  delete from paypal_connections where id = '00340aaa-0000-4000-8000-000000000001';
+  get diagnostics n = row_count;
+  if n <> 0 then raise exception 'FAIL: owner DELETE on paypal_connections affected % rows', n; end if;
+  raise notice 'PASS: a PayPal connection is revoked, never deleted';
+end $$;
+
+do $$
+begin
+  -- An issued invoice keeps its PayPal fields writable while its amounts freeze.
+  insert into invoices
+    (id, organization_id, project_id, client_id, invoice_number, invoice_type, status, subtotal, total, balance)
+  values ('00340aaa-0000-4000-8000-000000000011', '0000000a-0000-4000-8000-000000000001',
+          '000e0aaa-0000-4000-8000-000000000001', '000c0aaa-0000-4000-8000-000000000001',
+          'INV-2034-0001', 'progress', 'sent', 500.00, 500.00, 500.00);
+
+  update invoices
+     set paypal_invoice_id = 'INV2-TEST',
+         paypal_pay_url = 'https://www.paypal.com/invoice/p/x',
+         paypal_sent_at = now()
+   where id = '00340aaa-0000-4000-8000-000000000011';
+  raise notice 'PASS: PayPal fields stay writable on an issued invoice';
+
+  begin
+    update invoices set total = total + 1 where id = '00340aaa-0000-4000-8000-000000000011';
+    raise exception 'FAIL: an issued invoice''s total was changed beside the PayPal fields';
+  exception when restrict_violation then
+    raise notice 'PASS: the freeze still holds beside the PayPal fields';
+  end;
+
+  -- One PayPal invoice maps to one Foreman invoice within an organization.
+  begin
+    insert into invoices
+      (organization_id, project_id, client_id, invoice_number, invoice_type, status, paypal_invoice_id)
+    values ('0000000a-0000-4000-8000-000000000001',
+            '000e0aaa-0000-4000-8000-000000000001', '000c0aaa-0000-4000-8000-000000000001',
+            'INV-2034-0002', 'progress', 'sent', 'INV2-TEST');
+    raise exception 'FAIL: two invoices with the same PayPal invoice id were ALLOWED';
+  exception when unique_violation then
+    raise notice 'PASS: a PayPal invoice id is unique within an organization';
+  end;
+end $$;
+
+-- ── As Carl (Org A estimator): may see, may not write ────────────────────────
+reset role;
+set role app_user;
+select set_config('request.jwt.claims',
+  '{"sub":"00000ccc-0000-4000-8000-000000000003","org":"0000000a-0000-4000-8000-000000000001"}',
+  false);
+
+do $$
+declare n int;
+begin
+  select count(*) into n from paypal_connections;
+  if n <> 1 then raise exception 'FAIL: a member should see the organization''s one connection, saw %', n; end if;
+  raise notice 'PASS: a member can see the organization''s connection';
+
+  begin
+    insert into paypal_connections (organization_id, environment, client_id, client_secret_ciphertext)
+    values ('0000000a-0000-4000-8000-000000000001', 'sandbox', 'cid-c', 'v1.x.y.z');
+    raise exception 'FAIL: a non-owner stored a PayPal connection — was ALLOWED';
+  exception when insufficient_privilege then
+    raise notice 'PASS: only an owner can store a PayPal connection';
+  when unique_violation then
+    raise exception 'FAIL: uniqueness fired before the owner policy — the policy is not gating inserts';
+  end;
+
+  update paypal_connections set client_id = 'cid-hacked'
+    where id = '00340aaa-0000-4000-8000-000000000001';
+  get diagnostics n = row_count;
+  if n <> 0 then raise exception 'FAIL: a non-owner changed the PayPal connection (% rows)', n; end if;
+  raise notice 'PASS: only an owner can change it';
+end $$;
+
+-- ── As Bob (Org B owner): nothing of Org A's ─────────────────────────────────
+reset role;
+set role app_user;
+select set_config('request.jwt.claims',
+  '{"sub":"00000bbb-0000-4000-8000-000000000002","org":"0000000b-0000-4000-8000-000000000002"}',
+  false);
+
+do $$
+declare n int;
+begin
+  select count(*) into n from paypal_connections;
+  if n <> 0 then raise exception 'FAIL: Org B can see Org A''s PayPal connection (% rows)', n; end if;
+  raise notice 'PASS: cross-org SELECT isolation (paypal_connections)';
+end $$;
+
 reset role;
 select 'ALL RLS ASSERTIONS PASSED' as result;

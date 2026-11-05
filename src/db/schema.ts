@@ -13,6 +13,7 @@ import {
   index,
   uniqueIndex,
 } from 'drizzle-orm/pg-core';
+import { sql } from 'drizzle-orm';
 
 /**
  * Database schema.
@@ -239,6 +240,7 @@ export const paymentMethodEnum = pgEnum('payment_method', [
   'check',
   'cash',
   'other',
+  'paypal',
 ]);
 
 /** Change-order approval lifecycle (Task 21). */
@@ -1116,6 +1118,16 @@ export const invoices = pgTable(
     paymentInstructions: text('payment_instructions'),
     notes: text('notes'),
     pdfDocumentId: uuid('pdf_document_id'),
+    /**
+     * The PayPal-hosted copy of this invoice (Task 34), when one was created.
+     * PayPal is the collection page; this row stays the record. `paypalSentAt`
+     * is null between a successful create and a successful send, which is how a
+     * failed send is retried against the same PayPal invoice instead of making
+     * a second one.
+     */
+    paypalInvoiceId: text('paypal_invoice_id'),
+    paypalPayUrl: text('paypal_pay_url'),
+    paypalSentAt: timestamp('paypal_sent_at', { withTimezone: true }),
     lockedAt: timestamp('locked_at', { withTimezone: true }),
     createdBy: uuid('created_by').references(() => users.id),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
@@ -1123,6 +1135,9 @@ export const invoices = pgTable(
   },
   (table) => [
     uniqueIndex('invoices_org_number_idx').on(table.organizationId, table.invoiceNumber),
+    uniqueIndex('invoices_org_paypal_invoice_idx')
+      .on(table.organizationId, table.paypalInvoiceId)
+      .where(sql`paypal_invoice_id is not null`),
     index('invoices_project_idx').on(table.projectId),
     index('invoices_client_idx').on(table.clientId),
     index('invoices_status_due_idx').on(table.status, table.dueDate),
@@ -1891,6 +1906,40 @@ export const organizationSubscriptions = pgTable(
   ],
 );
 
+/**
+ * The business's own PayPal REST credentials (Task 34) — one row per
+ * organization, because client money has to land in that contractor's PayPal
+ * account and never the platform's. The client id is public by PayPal's
+ * design; the secret is stored only as `v1.<iv>.<tag>.<ciphertext>` under the
+ * app-side key, so a dump of this table yields nothing usable. The webhook id
+ * is PayPal's name for the listener the app registers for itself; it is what
+ * every incoming event is verified against. A disconnected row is revoked,
+ * not deleted: "when was PayPal connected, and by whom" is the first question
+ * a missing payment asks.
+ */
+export const paypalConnections = pgTable(
+  'paypal_connections',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    organizationId: uuid('organization_id')
+      .notNull()
+      .references(() => organizations.id, { onDelete: 'restrict' }),
+    /** `sandbox` or `live` — the CHECK in the migration is the closed list. */
+    environment: text('environment').notNull(),
+    clientId: text('client_id').notNull(),
+    clientSecretCiphertext: text('client_secret_ciphertext').notNull(),
+    webhookId: text('webhook_id'),
+    webhookUrl: text('webhook_url'),
+    connectedBy: uuid('connected_by').references(() => users.id),
+    connectedAt: timestamp('connected_at', { withTimezone: true }).notNull().defaultNow(),
+    lastVerifiedAt: timestamp('last_verified_at', { withTimezone: true }),
+    revokedAt: timestamp('revoked_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [uniqueIndex('paypal_connections_org_idx').on(table.organizationId)],
+);
+
 export type Client = typeof clients.$inferSelect;
 export type ClientContact = typeof clientContacts.$inferSelect;
 export type Property = typeof properties.$inferSelect;
@@ -1954,3 +2003,5 @@ export type CalendarEventMirror = typeof calendarEvents.$inferSelect;
 export type NewCalendarEventMirror = typeof calendarEvents.$inferInsert;
 export type OrganizationSubscription = typeof organizationSubscriptions.$inferSelect;
 export type NewOrganizationSubscription = typeof organizationSubscriptions.$inferInsert;
+export type PayPalConnection = typeof paypalConnections.$inferSelect;
+export type NewPayPalConnection = typeof paypalConnections.$inferInsert;
